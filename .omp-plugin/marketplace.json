@@ -1,0 +1,18 @@
+{
+  "name": "codex-workflows",
+  "description": "Codex-backed dynamic workflows for OMP: agent fan-outs, sessionful workers, supervised fleets, live viewers, and run analytics.",
+  "owner": {
+    "name": "lyyQwQ",
+    "url": "https://github.com/lyyQwQ"
+  },
+  "plugins": [
+    {
+      "name": "codex-workflows",
+      "source": "./",
+      "description": "Run OMP-authored dynamic workflows on a local Codex App Server with agent fan-outs, sessionful workers, supervised fleets, live viewers, and run analytics.",
+      "version": "0.2.0",
+      "category": "development",
+      "keywords": ["omp", "codex", "workflows", "agents", "orchestration"]
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Plan-mode smoke test for the GoalLint flagship template. A --plan dry run executes
 // the orchestration with agent() stubbed (schema skeletons) — no Codex, no tokens —
 // so this verifies the phase/agent shape, that the script survives skeleton outputs,
@@ -8,9 +9,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runWorkflowFile } from "../src/runWorkflow.js";
 
-const WF = new URL("../../examples/harness-zoo/goal-lint/goal-lint.workflow.js", import.meta.url).pathname;
+const WF = fileURLToPath(new URL("../../examples/harness-zoo/goal-lint/goal-lint.workflow.js", import.meta.url));
 const ARGS = JSON.parse(
-  readFileSync(new URL("../../examples/harness-zoo/goal-lint/sample-args.json", import.meta.url).pathname, "utf8"),
+  readFileSync(fileURLToPath(new URL("../../examples/harness-zoo/goal-lint/sample-args.json", import.meta.url)), "utf8"),
 );
 
 const plan = async (args) => {

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Live-mode test for the run viewer: exercises the NO-RELOAD live update channel
 // that the shape-smoke test (view-run.test.js) can't, because it needs a DOM that
 // reports data-live="1", a working sessionStorage, queryable [data-elapsed-start]
@@ -17,7 +18,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync, spawn } from "node:child_process";
 
-const VIEW = new URL("../bin/view-run.js", import.meta.url).pathname;
+const VIEW = fileURLToPath(new URL("../bin/view-run.js", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "wf-livetest-"));
 
 // ---- attribute/text-aware fake DOM ----

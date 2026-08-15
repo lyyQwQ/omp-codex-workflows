@@ -1,7 +1,6 @@
-// Resolve a workflow `agentType` to its system prompt (and optional model) by
-// reading the subagent markdown definition from .claude/agents/<name>.md — the
-// same registry the native Agent tool uses. Project scope (walking up from cwd
-// for a .claude/agents dir) takes precedence over the user scope (~/.claude).
+// Resolve a workflow `agentType` to its system prompt (and optional model) from
+// OMP agent definitions. Project scope (`.omp/agents`) takes precedence over the
+// active user's default agent directory (`~/.omp/agent/agents`).
 
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -40,19 +39,18 @@ function parseFrontmatter(text) {
 }
 
 /**
- * Returns { systemPrompt, model?, source } or null if the agentType is unknown.
- * `model` is whatever the definition's frontmatter declares (often a Claude
- * alias like "opus") — pass it through resolveModel() before use.
+ * `model` is the definition's frontmatter value; pass it through resolveModel()
+ * before use.
  */
 export async function loadAgentType(name, cwd = process.cwd()) {
   if (!name) return null;
   const key = `${cwd}::${name}`;
   if (cache.has(key)) return cache.get(key);
 
-  const rel = join(".claude", "agents", `${name}.md`);
+  const rel = join(".omp", "agents", `${name}.md`);
   const found =
     (await findUp(cwd, rel)) ??
-    (await tryRead(join(homedir(), ".claude", "agents", `${name}.md`)));
+    (await tryRead(join(homedir(), ".omp", "agent", "agents", `${name}.md`)));
 
   let result = null;
   if (found) {

@@ -3,37 +3,39 @@ name: codex-workflows
 description: >-
   Run a dynamic-workflow script on a local Codex App Server — orchestrate many
   Codex / GPT agents (the agent / parallel / pipeline / phase / budget DSL)
-  instead of Claude subagents, for codebase audits, large migrations, and
-  multi-agent review or research. Give it one or two rough sentences and it
-  compiles the right harness for you; add --multi for a supervised fleet of
-  concurrent workflows. Manual-invoke only via /codex-workflows.
+  from OMP for codebase audits, large migrations, and multi-agent review or
+  research. Give it one or two rough sentences and it compiles the right harness
+  for you; add --multi for a supervised fleet of concurrent workflows.
+  Manual-invoke only via /skill:codex-workflows.
 disable-model-invocation: true
 ---
 
 # Codex Workflows
 
-Run a Claude Code dynamic-workflow script against a local **Codex App Server**.
-The authoring surface is identical to native dynamic workflows — `export const
-meta` plus a body using `agent()`, `parallel()`, `pipeline()`, `phase()`,
-`log()`, `args`, `budget`, `workflow()` — but every `agent()` call runs as one
-Codex (GPT) thread+turn instead of a Claude subagent.
+Run an OMP-authored dynamic-workflow script against a local **Codex App Server**.
+The script surface is `export const meta` plus a body using `agent()`,
+`parallel()`, `pipeline()`, `phase()`, `log()`, `args`, `budget`, and
+`workflow()`. Every `agent()` call runs as one Codex thread and turn.
 
-**Manual-invoke only.** Claude does not auto-trigger this skill
-(`disable-model-invocation: true`); it runs only when the user types
-`/codex-workflows` or explicitly asks for a Codex workflow. Once invoked, follow
-the loop below — the work runs on Codex/GPT agents. If the user actually wanted
-Claude subagents, say so and point them at the native Workflow tool.
+**Manual-invoke only.** OMP does not auto-trigger this skill
+(`disable-model-invocation: true`); it runs when the user types
+`/skill:codex-workflows` or explicitly asks for a Codex workflow. If the user
+wants OMP task subagents rather than a standalone Codex workflow, use the native
+`task` tool instead.
 
-`RUNNER` below means the bundled runner directory: **`runner/` relative to this
-skill's base directory** (shown when the skill loads). For a classic skills-dir
-install that is `~/.claude/skills/codex-workflows/runner` — the literal paths in
-the examples below assume it; substitute your base directory if this skill is
-installed as a plugin. It is dependency-free Node ≥ 18.
+Resolve paths from the skill base directory shown when this skill loads:
+
+- `PLUGIN_ROOT` = two directories above the skill base.
+- `RUNNER` = `<skill-base>/runner` when it exists (classic skill install),
+  otherwise `<PLUGIN_ROOT>/runner` (OMP plugin install).
+- `ASSETS` = `<skill-base>` when it contains `references/`, otherwise `PLUGIN_ROOT`.
+
+Use the resolved absolute paths in commands. The runner is dependency-free Node ≥ 18.
 
 ## Default rough-intent mode
 
 **One or two rough sentences is enough.** You do not need to hand this skill a
-fully-engineered spec — describe what you want (e.g. `/codex-workflows Harden this
+fully-engineered spec — describe what you want (e.g. `/skill:codex-workflows Harden this
 goal before I run it`) and the skill compiles it into an operational harness itself:
 it classifies the job, picks the smallest workable scale, an archetype, and a
 harness pattern, builds a task contract, composes phases, casts personas, applies
@@ -76,7 +78,7 @@ Read the mode from the user's phrasing, then behave accordingly:
 |------|---------|----------|
 | **default** (rough-intent) | 1–2 rough sentences | Compile internally → author → run. State assumptions. |
 | **`--multi`** (fleet) | the `--multi` flag, or "fleet" / "several workflows at once" | Compile a **fleet plan** (2–4 concurrent variant workflows, similar and/or diverse), launch them in the background, and **supervise**: poll `fleet status`, answer gates, steer, kill, fork, then synthesize. See *Fleet mode*. |
-| **`prompt-only`** | "prompt-only", "just the invocation", "don't run it" | Emit a complete `/codex-workflows` invocation/spec (the A–L structure below) and **STOP** — do not author or run. |
+| **`prompt-only`** | "prompt-only", "just the invocation", "don't run it" | Emit a complete `/skill:codex-workflows` invocation/spec (the A–L structure below) and **STOP** — do not author or run. |
 | **`write-only`** | "write it but don't run", "author only" | Author the workflow script, print its path, stop before running. |
 | **`run-existing`** | a script path or saved-workflow name is given | Skip compilation; run that script/name through the runner. |
 | **`quick`** | "quick", "small", "cheap" | Bias to a `quick_harness` (2–5 agents). |
@@ -102,7 +104,7 @@ are unchanged; steps 2 and 4 are where rough intent gets compiled.
 1. **Preflight** — once per session, or whenever a run fails to connect, confirm
    Codex is reachable and authed:
    ```bash
-   node ~/.claude/skills/codex-workflows/runner/test/handshake.js
+   node <RUNNER>/test/handshake.js
    ```
    It prints `state: ready` and the available models. If it fails, tell the user
    to run `codex login` (the runner needs a logged-in `codex` CLI on PATH).
@@ -135,7 +137,7 @@ are unchanged; steps 2 and 4 are where rough intent gets compiled.
    `--effort medium` for a quick harness (see *Effort*). `--frontier` pins every
    agent to the latest frontier model (see *Model*):
    ```bash
-   node ~/.claude/skills/codex-workflows/runner/bin/run-workflow.js <script.js> --frontier --auto-effort [other flags]
+   node <RUNNER>/bin/run-workflow.js <script.js> --frontier --auto-effort [other flags]
    #   quick_harness:  … <script.js> --frontier --effort medium [other flags]
    ```
    Progress streams on **stderr**; the workflow's return value prints as JSON on
@@ -148,7 +150,7 @@ are unchanged; steps 2 and 4 are where rough intent gets compiled.
    mention the script path, and **render the run's ASCII map inline in this
    conversation** so they see the execution graph natively (no window to open):
    ```bash
-   node ~/.claude/skills/codex-workflows/runner/bin/map-run.js --journal <journal> --no-color
+   node <RUNNER>/bin/map-run.js --journal <journal> --no-color
    ```
    (`<journal>` is the path the run logged as `✎ journal: …`, default
    `.workflow-journal/<name>.jsonl`.) Paste that output into your reply inside a
@@ -166,9 +168,9 @@ are unchanged; steps 2 and 4 are where rough intent gets compiled.
    `summarize-run` on the journal and fold the highlights into your reply (see
    *Summarize a run*).
 
-**Do NOT call the native `Workflow` tool while using this skill.** Authoring the
-script and running it through the CLI above is exactly what routes the work to
-Codex; invoking the native tool would spawn Claude subagents instead.
+**Do not call OMP's native `task` tool to execute this workflow.** Authoring the
+script and running it through the bundled CLI is what routes the work to Codex;
+`task` creates OMP-managed subagents instead.
 
 ## Fleet mode (`--multi`): launch, supervise, steer
 
@@ -237,7 +239,7 @@ Launch each with `run_in_background`, **always with `--interactive`** (it
 enables the answer channel headlessly):
 
 ```bash
-node ~/.claude/skills/codex-workflows/runner/bin/run-workflow.js hunt-orm.workflow.js \
+node <RUNNER>/bin/run-workflow.js hunt-orm.workflow.js \
   --frontier --auto-effort --interactive --budget 1500000 1>hunt-orm.result.json
 # same script, different slice → isolate with --run-id:
 node …/run-workflow.js hunt.workflow.js --args '{"slice":"auth"}' --run-id auth --interactive …
@@ -252,7 +254,7 @@ polled (e.g. append `$WORKFLOW_EVENT` to a file you watch, or a macOS
 `osascript` notification):
 
 ```bash
-node ~/.claude/skills/codex-workflows/runner/bin/fleet.js status <fleet-dir>   # --json to parse
+node <RUNNER>/bin/fleet.js status <fleet-dir>   # --json to parse
 ```
 
 (When the *user* wants to watch alongside you, add `--watch` for an in-place
@@ -312,7 +314,7 @@ productization · goal hardening · run summarization · harness design.**
 
 | Archetype | When to use |
 |-----------|-------------|
-| `goal_lint` ✓ | harden a vague Codex/Claude `/goal` before an expensive agent run |
+| `goal_lint` ✓ | harden a vague Codex `/goal` before an expensive agent run |
 | `claim_check` / `proofpack` ✓ | verify claims in a post / README / report / memo / result / agent output against repo artifacts or sources |
 | `research_result_triage` | decide whether an experiment / benchmark / result is real, overfit, useful, or worth continuing |
 | `next_experiment_designer` | design concrete next experiments, falsification gates, and Codex `/goal`s |
@@ -325,13 +327,14 @@ productization · goal hardening · run summarization · harness design.**
 | `manuscript_or_citation_audit` | manuscript revision, citation checking, claim-support review, journal-fit editing |
 | `investment_deep_dive` | source-grounded financial analysis, scenario valuation, thesis critique, portfolio fit |
 | `root_cause_lab` | diagnose a failure / bug / flaky test / broken workflow / failed experiment / confusing logs |
-| `agent_rule_miner` | mine recurring agent failures, review comments, or corrections into durable `CLAUDE.md` / `AGENTS.md` / workflow rules |
+| `agent_rule_miner` | mine recurring agent failures, review comments, or corrections into durable `AGENTS.md` / workflow rules |
 | `run_summary` ✓ | summarize a workflow journal: cost, phase timing, tokens, cached / failed agents, reliability warnings |
 | `harness_forge` | design the best workflow/harness for a rough task rather than solving it directly |
 
-✓ = a concrete template ships today: `goal_lint` → `examples/harness-zoo/goal-lint/`,
-`claim_check` → `examples/harness-zoo/claim-check/` (the trust loop's "after"),
-`run_summary` → `summarize-run.js` (see *Summarize a run*). The rest are **shapes to
+✓ = a concrete template ships today: `goal_lint` →
+`<ASSETS>/examples/harness-zoo/goal-lint/`, `claim_check` →
+`<ASSETS>/examples/harness-zoo/claim-check/`, and `run_summary` →
+`<RUNNER>/bin/summarize-run.js`. The rest are **shapes to
 author** from the patterns below, not prebuilt files. Note that `harness_forge` and
 the `goal_contract_compiler` pattern are the skill's **own** meta-operations — the
 default rough-intent path *is* essentially those two.
@@ -405,8 +408,8 @@ Never make the workflow block on live human input. When a decision truly needs a
 human (scope, cost, risk, destructive action, value judgment), **return** a
 structured checkpoint — `{ status: "needs_human", question, choices?,
 recommendedDefault, reason, ledger, resumeInstructions }` — and stop. The pattern is
-in `examples/sessionful-workers.workflow.js` and `references/authoring.md` →
-*Sessionful workers*.
+in `<ASSETS>/examples/sessionful-workers.workflow.js` and
+`<ASSETS>/references/authoring.md` → *Sessionful workers*.
 
 ### 5 · Build the task contract
 
@@ -415,11 +418,11 @@ assumptions · allowed files/actions · forbidden files/actions · success crite
 failure criteria · required artifacts · stop condition · human-review triggers (if
 any) · sandbox requirement** — and classify the workflow as **read-only**,
 **report-writing**, or **execution-capable**. (This mirrors GoalLint's
-`hardened_goal` schema — see `examples/harness-zoo/goal-lint/`.)
+`hardened_goal` schema — see `<ASSETS>/examples/harness-zoo/goal-lint/`.)
 
 **Inputs & context reconstruction.** Tell agents which local files/dirs to inspect
-to reconstruct project state — likely: `README.md`, `CLAUDE.md`, `AGENTS.md`,
-`.claude/`, `workflows/`, `examples/`, `reports/`, `results/`, `runs/`, `logs/`,
+to reconstruct project state — likely: `README.md`, `AGENTS.md`, `.omp/`,
+`workflows/`, `examples/`, `reports/`, `results/`, `runs/`, `logs/`,
 `docs/`, `experiments/`, `data/`, `.workflow-journal/`, and recent artifacts.
 Require the workflow to **infer state and state its uncertainty**. If freshness or
 external/current facts matter and there is no source/web access, require a
@@ -496,7 +499,7 @@ this section is the policy, not the reference):
 
 | Situation | Setting | Why |
 |-----------|---------|-----|
-| Always | the Codex runner, **not** the native `Workflow` tool | routes work to Codex/GPT, not Claude subagents |
+| Always | the bundled Codex runner, not OMP `task` | routes work to standalone Codex threads |
 | Always | write the script into the repo | reproducible and rereadable |
 | Model | `--frontier` | one frontier model for every agent (see *Model*) |
 | Effort — `quick_harness` | `--effort medium` (or `--pin-effort medium`) | a small analytical run doesn't need layer-scaled effort; a flat, cheaper tier suffices |
@@ -521,7 +524,7 @@ Three facts to encode correctly, since they're easy to get wrong:
 
 **Productization** (for reusable harnesses): parameterize with `args`; avoid
 hardcoded one-off paths; add a short README/usage note for a `harness-zoo` workflow;
-name it for future install into `.claude/workflows/`; keep the script plain
+name it for future install into `.omp/workflows/`; keep the script plain
 JavaScript using only the injected globals (no imports / fs — agents do all I/O).
 
 ## Model: one frontier model for every agent
@@ -626,7 +629,7 @@ Globals:
 - `budget` → `{ total, spent(), remaining() }` (token accounting).
 - `workflow(ref, args?)` → run another script inline (one level). `ref` is a
   `{ scriptPath }`, a path string, or a saved-workflow **name** resolved from
-  `.claude/workflows/` then `~/.claude/workflows/`.
+  `.omp/workflows/` then `~/.omp/agent/workflows/`.
 - `agent.start(prompt, opts?)` → an **`AgentSession`** (long-lived worker; returns
   before the turn finishes). `agent.waitAny(sessions, opts?)` → the first actionable
   one. `session.steer(msg, {wait})` runs a follow-up turn **on the same thread**;
@@ -635,17 +638,17 @@ Globals:
   sessions for steerable/iterative work (see *4b · One-shot vs sessionful workers*).
 
 Key `agent()` opts: `schema` (JSON Schema → Codex `outputSchema`, result parsed),
-`model` (Claude ids/aliases auto-map to a Codex model), `agentType` (loads
-`.claude/agents/<name>.md` as the system prompt), `systemPrompt`, `effort`
+`model` (a Codex model id), `agentType` (loads `.omp/agents/<name>.md` as the
+system prompt), `systemPrompt`, `effort`
 (usually omit — let `--auto-effort` scale it to layer width; see *Effort*),
 `sandbox` (`read-only` | `workspace-write` | `danger-full-access`), `isolation:
 'worktree'`, `cwd`, `personality`, `retries`, `label`, `phase` (group/attribute
 this agent — set it inside concurrent `pipeline`/`parallel` stages), `timeoutMs`.
 
-Read **`references/authoring.md`** for the full guide and the standard quality
-patterns (adversarial / **majority refute-by-default** verify, judge panel,
+Read **`<ASSETS>/references/authoring.md`** for the full guide and the standard
+quality patterns (adversarial / **majority refute-by-default** verify, judge panel,
 **loop-until-dry**, **fresh-context review gate**, multi-modal sweep), and
-**`examples/`** for runnable templates — `hello`, `review`, `bug-hunt`
+**`<ASSETS>/examples/`** for runnable templates — `hello`, `review`, `bug-hunt`
 (loop-until-dry + majority verify), `review-gates` (producer ≠ reviewer), and the
 **sessionful** demos `sessionful-workers`, `warm-context-interrogation` (load once,
 ask many), `flaky-bug-perturbation` (hold + perturb live state), `hedged-take-first-win`
@@ -658,7 +661,7 @@ run-workflow <script.js>
   --args JSON | --args-file PATH   value exposed to the script as `args`
   --frontier       pin ALL agents to the auto-detected latest frontier model (recommended; overrides per-call model)
   --pin-model M    pin ALL agents to model M (overrides per-call model)
-  --model M        fallback model when not pinned; Claude ids/aliases auto-map
+  --model M        fallback Codex model when not pinned
   --effort E       none|minimal|low|medium|high|xhigh; flat fallback; unset → user config or model default
   --auto-effort    scale effort to layer width: 1→xhigh, 2+→high (floor) (recommended; overrides --effort)
   --pin-effort E   force ALL agents to effort E (overrides per-call effort)
@@ -732,13 +735,9 @@ run-workflow <script.js>
   coordinate agents, with no `process`/`fetch`/`require`/`import()`/`fs`/timers.
   The *agents* do all file/command I/O (via the Codex sandbox). Don't write a
   script that tries to read files itself — have an `agent()` do it.
-- **Model mapping** — a script that requests `claude-opus-4-8` or a bare
-  `opus`/`sonnet`/`haiku` maps Opus → Sol, Sonnet → Terra, and Haiku → Luna when
-  those GPT-5.6 Codex tiers are available, with an available-model fallback.
-  Don't rely on that: pin every agent with `--frontier` (or
-  `--pin-model gpt-5.6-sol`) — see
-  *Model*. (`--model` is only the *fallback* default; a per-call `model` in the
-  script overrides it, so it does NOT guarantee one model for every agent.)
+- **Model selection** — pass an exact Codex model id, or pin every agent to the
+  strongest available model with `--frontier` (recommended). `--model` is only
+  the fallback; a per-call `model` overrides it.
 - **Determinism** — `Math.random()`, `Date.now()`, and argless `new Date()` are
   blocked inside scripts (they'd desync resume). Pass values via `args`.
 - **Per-turn timeout, and "failed" ≠ "did nothing"** — each `agent()` turn must
@@ -774,10 +773,10 @@ missing metrics / artifacts / evidence are uncertainty, not success.
 
 ## When not to use
 
-- The user wants **Claude** subagents → use the native Workflow tool, not this.
-- A single quick task that doesn't need fan-out → just do it directly.
-- The user wants the in-app `/workflows` progress UI or to save a `/command` —
-  that's the native feature; this skill is a standalone Codex-backed runner.
+- The user wants OMP-managed task subagents → use the native `task` tool.
+- A single quick task that does not need fan-out → do it directly.
+- The user needs execution inside the active OMP task graph rather than a
+  standalone Codex workflow process.
 
 ## View a past run
 
@@ -785,14 +784,14 @@ Every completed run leaves a journal at `<project>/.workflow-journal/<name>.json
 To inspect it as a polished GUI, generate a self-contained HTML viewer:
 
 ```bash
-node ~/.claude/skills/codex-workflows/runner/bin/view-run.js <project-dir> --open
+node <RUNNER>/bin/view-run.js <project-dir> --open
 ```
 
 For a terminal-native view (no browser), render the run as an **ASCII map** —
 add `--watch` to redraw it live as the run progresses:
 
 ```bash
-node ~/.claude/skills/codex-workflows/runner/bin/map-run.js <project-dir> [--watch]
+node <RUNNER>/bin/map-run.js <project-dir> [--watch]
 ```
 
 It auto-finds the journal and the `*.workflow.js` script in that dir (or pass
@@ -826,8 +825,8 @@ raw-JSON toggle per agent.
 It works for **any** run: barrier/phase or pipeline shapes, flat label-less runs
 (grouped under one phase), huge fan-outs (phases over ~12 agents fold into an
 aggregate node you expand inline; the Tree shows all), journal-only runs with no
-script (no model chips), and string/null results. `runner/test/view-run.test.js`
-smoke-renders all these shapes.
+script (no model chips), and string/null results.
+`<RUNNER>/test/view-run.test.js` smoke-renders all these shapes.
 
 ## Summarize a run
 
@@ -836,7 +835,7 @@ run cost, where the time and tokens went, and whether anything looks off — poi
 `summarize-run` at the journal (or run dir):
 
 ```bash
-node ~/.claude/skills/codex-workflows/runner/bin/summarize-run.js <project-dir>
+node <RUNNER>/bin/summarize-run.js <project-dir>
 #   --json        structured (the summary object)        --markdown   paste-ready
 #   --out PATH    write to a file                         --include-result  preview the return value
 ```
@@ -853,12 +852,9 @@ table. `run-workflow … --summary` prints the full report inline at the end.
 
 ## References
 
-- `references/authoring.md` — full DSL + standard quality patterns.
-- `references/runner-readme.md` — architecture, the Codex protocol mapping,
-  faithfulness vs. the native runtime, and limits.
-- `references/fleet-protocol.md` — the sidecar file contract behind fleet
-  supervision (states, questions/answers, notify), for supervising or
-  producing runs outside this runner.
-- `examples/` — runnable templates: `hello`, `review`, `bug-hunt` (loop-until-dry +
-  majority refute-by-default), `review-gates` (fresh-context review gate),
-  `deep-research`, `tournament-sort`, `triage`, `classify-route`.
+- `<ASSETS>/references/authoring.md` — full DSL + standard quality patterns.
+- `<ASSETS>/references/runner-readme.md` — architecture, protocol mapping, limits.
+- `<ASSETS>/references/fleet-protocol.md` — fleet supervision sidecar contract.
+- `<ASSETS>/examples/` — runnable templates including `hello`, `review`,
+  `bug-hunt`, `review-gates`, `deep-research`, `tournament-sort`, `triage`, and
+  `classify-route`.

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Fleet supervision checks — the agent-supervisor loop, no Codex, no tokens.
 //
 //  1. inspectRun's state machine (completed / running / stopped / stalled /
@@ -18,8 +19,8 @@ import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { inspectRun, resolveTargets, renderFleetText, renderFleetHtml, pidAlive } from "../src/fleetStatus.js";
 
-const FLEET = new URL("../bin/fleet.js", import.meta.url).pathname;
-const RUN = new URL("../bin/run-workflow.js", import.meta.url).pathname;
+const FLEET = fileURLToPath(new URL("../bin/fleet.js", import.meta.url));
+const RUN = fileURLToPath(new URL("../bin/run-workflow.js", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "wf-fleet-"));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -167,11 +168,17 @@ const go = await human("Ship the fix?", { id: "go", choices: ["yes", "no"], defa
 return { go }
 `);
   const notifyLog = join(ROOT, "notify.log");
+  const notifyScript = join(gdir, "notify.mjs");
+  writeFileSync(
+    notifyScript,
+    'import { appendFileSync } from "node:fs";\nappendFileSync(process.argv[2], process.env.WORKFLOW_EVENT + "\\n");\n',
+  );
+  const notifyCommand = `"${process.execPath}" "${notifyScript}" "${notifyLog}"`;
   const child = spawn(
-    "node",
+    process.execPath,
     [RUN, "gate.workflow.js", "--run-id", "alpha", "--no-summary",
-      // --notify-cmd implies --interactive; the event JSON arrives via $WORKFLOW_EVENT
-      "--notify-cmd", `printf '%s\\n' "$WORKFLOW_EVENT" >> '${notifyLog}'`],
+      // --notify-cmd implies --interactive; the event JSON arrives via WORKFLOW_EVENT.
+      "--notify-cmd", notifyCommand],
     { cwd: gdir, stdio: ["ignore", "pipe", "pipe"] },
   );
   let out = "", err = "";
@@ -242,7 +249,7 @@ return { go }
   assert.deepEqual(infos2[0].result, { go: "yes" });
   assert.equal(infos2[0].needsAttention, false);
 } finally {
-  rmSync(ROOT, { recursive: true, force: true });
+  rmSync(ROOT, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
 }
 
 console.log("fleet (supervisor loop) checks passed ✓");

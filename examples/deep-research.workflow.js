@@ -1,7 +1,5 @@
-// Deep research over a codebase — the shape of Claude Code's bundled
-// /deep-research workflow, re-hosted on Codex: fan out investigators across
-// several angles, cross-check (vote on) every claim they surface, then a single
-// synthesizer writes a cited report from only the claims that survived.
+// Deep research over a codebase: fan out investigators across several angles,
+// cross-check every claim, then synthesize only the claims that survived.
 //
 // This version researches a CODE question in a read-only repo sandbox, so it runs
 // anywhere without web access. For a web-enabled variant, change the investigator

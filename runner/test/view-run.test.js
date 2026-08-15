@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Robustness test for the run viewer: generates synthetic codex-workflows runs
 // covering the shapes a real run can take, builds a viewer for each, and smoke-
 // renders it (map + tree + both themes + a drawer) in a fake DOM. No tokens, no
@@ -10,7 +11,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 
-const VIEW = new URL("../bin/view-run.js", import.meta.url).pathname;
+const VIEW = fileURLToPath(new URL("../bin/view-run.js", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "wf-viewtest-"));
 
 // ---- fake DOM ----

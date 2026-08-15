@@ -30,6 +30,7 @@ import {
   mkdirSync, writeFileSync, appendFileSync, renameSync, readFileSync, existsSync,
 } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { spawnNotification } from "../src/notify.js";
 
 function parseArgs(argv) {
   const out = { name: null, runId: null, notifyCmd: null, cmd: null, args: [] };
@@ -84,14 +85,7 @@ if (!existsSync(B + ".answers.jsonl")) writeFileSync(B + ".answers.jsonl", "");
 
 const event = (e) => { try { appendFileSync(B + ".events.jsonl", JSON.stringify({ t: Date.now(), ...e }) + "\n"); } catch {} };
 const notify = opts.notifyCmd
-  ? (evt) => {
-      try {
-        spawn("/bin/sh", ["-c", opts.notifyCmd], {
-          env: { ...process.env, WORKFLOW_EVENT: JSON.stringify(evt) },
-          stdio: "ignore", detached: true,
-        }).unref();
-      } catch {}
-    }
+  ? (evt) => spawnNotification(opts.notifyCmd, evt)
   : null;
 
 const JOB = "job#0";

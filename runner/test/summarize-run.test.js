@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Checks for the run-summary tool (src/runSummary.js + bin/summarize-run.js).
 // Builds synthetic runs covering the shapes a real journal can take — enriched,
 // metric-less/old, resumed (cached + interrupted), budget-capped, null-heavy,
@@ -11,7 +12,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { summarizeRun, renderSummaryText, renderSummaryMarkdown, renderEndOfRun, fmtTokens, fmtMs } from "../src/runSummary.js";
 
-const BIN = new URL("../bin/summarize-run.js", import.meta.url).pathname;
+const BIN = fileURLToPath(new URL("../bin/summarize-run.js", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "wf-sumtest-"));
 const J = (o) => JSON.stringify(o);
 

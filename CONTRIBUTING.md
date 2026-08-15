@@ -4,7 +4,7 @@ Thanks for your interest! This is a small, dependency-free project — easy to h
 
 ## Layout
 
-- `SKILL.md` — the Claude Code skill definition (what Claude reads when `/codex-workflows` runs).
+- `skills/codex-workflows/SKILL.md` — the OMP skill loaded by `/skill:codex-workflows`.
 - `runner/` — the standalone runner (Node, zero deps):
   - `src/` — the seam (`codexAgent.js` + `codexSession.js` for sessionful workers) + provider-neutral DSL (`runtime.js`), transport (`appServerClient.js`), and helpers (model mapping, agentTypes, journal, worktree, meter).
   - `bin/run-workflow.js` — CLI to execute a workflow script.
@@ -15,8 +15,8 @@ Thanks for your interest! This is a small, dependency-free project — easy to h
 - `references/` — `authoring.md` (workflow-script DSL), `runner-readme.md` (architecture / Codex protocol mapping / faithfulness), `fleet-protocol.md` (the sidecar contract that makes runs supervisable — implement it to add a new producer/consumer).
 - `examples/` — runnable templates and a bundled `demo/` run.
 - `bin/codex-workflows.js` — the npx/git-install dispatcher (`run` / `fleet` / `view` / `map` / `summarize` / `doctor`).
-- `scripts/sync-skill.js` — one-command sync of the skill surface to `~/.claude/skills/codex-workflows` (`npm run sync-skill`).
-- `.claude-plugin/` — plugin + marketplace manifests (the repo installs directly as a Claude Code plugin).
+- `scripts/sync-skill.js` — syncs the skill surface to `~/.omp/agent/skills/codex-workflows`.
+- `.omp-plugin/` — OMP plugin and marketplace manifests.
 
 ## Develop
 
@@ -26,7 +26,7 @@ No build step. Requires Node ≥ 18.
 npm test            # offline unit checks + viewer robustness (no Codex, no network)
 npm run doctor      # check the local Codex App Server is reachable & logged in
 npm run demo        # open the bundled sample run in the viewer
-npm run sync-skill  # push your working tree to ~/.claude/skills/codex-workflows
+npm run sync-skill  # push your working tree to ~/.omp/agent/skills/codex-workflows
 ```
 
 If you touch `runner/bin/view-run.js`, run `npm test` — `view-run.test.js` renders

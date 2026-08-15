@@ -1,6 +1,5 @@
-// Trivial 2-agent smoke test. Authored exactly like a Claude Code dynamic
-// workflow — `export const meta` + a body using the injected globals — but
-// every agent() here runs on the local Codex App Server.
+// Trivial two-agent smoke test using the injected workflow globals. Every
+// agent() runs on the local Codex App Server.
 
 export const meta = {
   name: "hello-codex",

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // The `supervise` shim is the fleet protocol's reference SECOND producer: any
 // command wrapped in it must be fully supervisable by the same tools as a
 // workflow run. Proven here end-to-end with a real bash job — no Codex:
@@ -12,13 +13,13 @@
 //   node test/supervise.test.js
 
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 
-const SUP = new URL("../bin/supervise.js", import.meta.url).pathname;
-const FLEET = new URL("../bin/fleet.js", import.meta.url).pathname;
+const SUP = fileURLToPath(new URL("../bin/supervise.js", import.meta.url));
+const FLEET = fileURLToPath(new URL("../bin/fleet.js", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "wf-supervise-"));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -37,19 +38,27 @@ try {
   // ── 1–4 · the answered-gate path ─────────────────────────────────────────
   const dir = join(ROOT, "deploy");
   mkdirSync(dir, { recursive: true });
-  const script = join(dir, "deploy.sh");
-  writeFileSync(script, `#!/bin/bash
-echo "canary rollout…"
-echo '@@ASK {"id":"ship","question":"Canary clean. Promote to prod?","choices":["yes","no"],"default":"no","timeoutMs":30000}'
-read answer
-echo "supervisor said: $answer"
-[ "$answer" = "yes" ] || exit 3
-echo "promoted"
+  const script = join(dir, "deploy.mjs");
+  writeFileSync(script, `
+console.log("canary rollout…");
+console.log('@@ASK {"id":"ship","question":"Canary clean. Promote to prod?","choices":["yes","no"],"default":"no","timeoutMs":30000}');
+process.stdin.setEncoding("utf8");
+process.stdin.once("data", (data) => {
+  const answer = data.trim();
+  console.log("supervisor said: " + answer);
+  if (answer === "yes") console.log("promoted");
+  process.exit(answer === "yes" ? 0 : 3);
+});
 `);
-  chmodSync(script, 0o755);
 
   const notifyLog = join(ROOT, "notify.log");
-  const child = spawn("node", [SUP, "--name", "deploy", "--notify-cmd", `printf '%s\\n' "$WORKFLOW_EVENT" >> '${notifyLog}'`, "--", "bash", script.split("/").pop()], {
+  const notifyScript = join(dir, "notify.mjs");
+  writeFileSync(
+    notifyScript,
+    'import { appendFileSync } from "node:fs";\nappendFileSync(process.argv[2], process.env.WORKFLOW_EVENT + "\\n");\n',
+  );
+  const notifyCommand = `"${process.execPath}" "${notifyScript}" "${notifyLog}"`;
+  const child = spawn(process.execPath, [SUP, "--name", "deploy", "--notify-cmd", notifyCommand, "--", process.execPath, script], {
     cwd: dir, stdio: ["ignore", "pipe", "pipe"],
   });
   let out = "";
@@ -101,15 +110,17 @@ echo "promoted"
   // ── 5–6 · the timeout path: default delivered, failing job → stopped ──────
   const dir2 = join(ROOT, "timeout");
   mkdirSync(dir2, { recursive: true });
-  const script2 = join(dir2, "gate.sh");
-  writeFileSync(script2, `#!/bin/bash
-echo '@@ASK {"id":"go","question":"Proceed?","choices":["yes","no"],"default":"no","timeoutMs":900}'
-read answer
-echo "got: $answer"
-[ "$answer" = "yes" ] || exit 3
+  const script2 = join(dir2, "gate.mjs");
+  writeFileSync(script2, `
+console.log('@@ASK {"id":"go","question":"Proceed?","choices":["yes","no"],"default":"no","timeoutMs":900}');
+process.stdin.setEncoding("utf8");
+process.stdin.once("data", (data) => {
+  const answer = data.trim();
+  console.log("got: " + answer);
+  process.exit(answer === "yes" ? 0 : 3);
+});
 `);
-  chmodSync(script2, 0o755);
-  const r2 = spawnSync("node", [SUP, "--name", "gate", "--", "bash", "gate.sh"], { cwd: dir2, encoding: "utf8", timeout: 20_000 });
+  const r2 = spawnSync(process.execPath, [SUP, "--name", "gate", "--", process.execPath, script2], { cwd: dir2, encoding: "utf8", timeout: 20_000 });
   assert.equal(r2.status, 3, "the default 'no' made the job exit 3");
   assert.match(r2.stdout, /got: no/, "the DEFAULT was delivered on timeout — gates never hang");
 
@@ -119,7 +130,7 @@ echo "got: $answer"
   const st3 = JSON.parse(spawnSync("node", [FLEET, "status", dir2, "--json"], { encoding: "utf8" }).stdout);
   assert.equal(st3[0].state, "stopped", "a failed job (no fresh result, pid gone) reads as stopped");
 } finally {
-  rmSync(ROOT, { recursive: true, force: true });
+  rmSync(ROOT, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
 }
 
 console.log("supervise (second protocol producer) checks passed ✓");

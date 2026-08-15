@@ -1,0 +1,14 @@
+{
+  "name": "codex-workflows",
+  "displayName": "Codex Workflows",
+  "description": "Run OMP-authored dynamic workflows on a local Codex App Server with agent fan-outs, sessionful workers, supervised fleets, live viewers, and run analytics.",
+  "author": {
+    "name": "lyyQwQ",
+    "url": "https://github.com/lyyQwQ"
+  },
+  "homepage": "https://github.com/lyyQwQ/omp-codex-workflows#readme",
+  "repository": "https://github.com/lyyQwQ/omp-codex-workflows",
+  "license": "MIT",
+  "keywords": ["omp", "codex", "workflows", "agents", "orchestration", "gpt", "fleet"],
+  "skills": ["./skills/codex-workflows/SKILL.md"]
+}

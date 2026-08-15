@@ -1,6 +1,5 @@
-// Map a model id requested by a workflow (often a Claude id, or a bare
-// opus/sonnet/haiku alias from a Claude-authored script or an agentType
-// definition) onto a model the local Codex app-server actually exposes.
+// Resolve workflow model ids against the models exposed by the local Codex
+// app-server.
 
 export function modelId(m) {
   if (typeof m === "string") return m;
@@ -8,55 +7,15 @@ export function modelId(m) {
   return null;
 }
 
-// Claude tier -> ordered Codex preferences (first available wins).
-const FAMILY_PREFERENCES = {
-  opus: ["gpt-5.6-sol", "gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.2"],
-  sonnet: ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.4", "gpt-5.5", "gpt-5.3-codex", "gpt-5.4-mini"],
-  haiku: ["gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.6-terra", "gpt-5.4", "gpt-5.2"],
-};
-
 // The API's family alias is not necessarily listed by Codex model/list. Resolve
 // it to the explicit catalog id so `--model gpt-5.6` works with the App Server.
 const MODEL_ALIASES = {
   "gpt-5.6": "gpt-5.6-sol",
 };
 
-// Matches Claude full ids ("claude-opus-4-8") and bare aliases ("opus").
-function claudeFamily(id) {
-  const s = String(id).toLowerCase();
-  if (/opus/.test(s)) return "opus";
-  if (/sonnet/.test(s)) return "sonnet";
-  if (/haiku/.test(s)) return "haiku";
-  return null;
-}
 
-/**
- * Resolve `requested` to a Codex model id (or undefined to use Codex's config
- * default).
- *   undefined / "inherit" / "default" -> undefined
- *   Claude id or alias                -> mapped family preference (best available)
- *   already-available id              -> as-is
- *   unknown but unavailable           -> undefined (config default) + warn
- * If `available` is empty (model/list unavailable), Claude ids still map to their
- * top preference and other ids pass through unchanged.
- */
 export function resolveModel(requested, available = [], log = () => {}) {
   if (!requested || /^(inherit|default)$/i.test(requested)) return undefined;
-
-  const family = claudeFamily(requested);
-  if (family) {
-    const prefs = FAMILY_PREFERENCES[family] || [];
-    const pick = available.length
-      ? (prefs.find((m) => available.includes(m)) ??
-         available.find((m) => !/mini|spark/.test(m)) ??
-         available[0])
-      : prefs[0];
-    if (pick) {
-      log(`model: '${requested}' (Claude) → '${pick}'`);
-      return pick;
-    }
-    return undefined;
-  }
 
   // Preserve an exact catalog id before expanding API aliases. This also keeps
   // the resolver compatible if a future catalog exposes the bare family alias.
@@ -68,11 +27,12 @@ export function resolveModel(requested, available = [], log = () => {}) {
     return alias;
   }
 
-  if (!available.length) return requested; // non-Claude id, can't validate — trust it
+  if (!available.length) return requested;
 
   log(`model: '${requested}' not exposed by Codex → using config default (have: ${available.join(", ")})`);
   return undefined;
 }
+
 
 // Pick the latest frontier model from a `model/list` result: the newest,
 // strongest general model. Excludes -mini/-spark variants and hidden models;

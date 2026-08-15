@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-// Sync this repo's skill surface to ~/.claude/skills/codex-workflows in one
-// command — the skill lives in two places (the repo is the source of truth;
-// the skills dir is what Claude Code loads) and they drift when synced by hand.
+// Sync this repo's skill surface to OMP's default user skill directory.
 //
-//   npm run sync-skill            # repo → ~/.claude/skills/codex-workflows
+//   npm run sync-skill            # repo → ~/.omp/agent/skills/codex-workflows
 //
-// Copies SKILL.md + references/ + examples/ + runner/, excluding OS noise and
+// Copies the canonical skill plus references/ + examples/ + runner/, excluding
 // local run artifacts (but keeping the bundled demo's committed journal). The
 // destination is replaced wholesale, so renames/deletions propagate too.
 
@@ -15,7 +13,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
-const DEST = process.argv[2] || join(homedir(), ".claude", "skills", "codex-workflows");
+const DEST = process.argv[2] || join(homedir(), ".omp", "agent", "skills", "codex-workflows");
 
 // Local artifacts that must not ship: OS noise, generated viewer pages, and
 // run journals — EXCEPT the bundled demo's committed journal, which is the
@@ -30,14 +28,15 @@ const skip = (p) => {
 };
 const filter = (s) => !skip(s);
 
-if (!existsSync(join(SRC, "SKILL.md"))) {
-  console.error(`sync-skill: ${SRC} does not look like the repo root (no SKILL.md)`);
+const SKILL = join(SRC, "skills", "codex-workflows", "SKILL.md");
+if (!existsSync(SKILL)) {
+  console.error(`sync-skill: ${SRC} does not contain skills/codex-workflows/SKILL.md`);
   process.exit(1);
 }
 
 rmSync(DEST, { recursive: true, force: true });
 mkdirSync(DEST, { recursive: true });
-cpSync(join(SRC, "SKILL.md"), join(DEST, "SKILL.md"));
+cpSync(SKILL, join(DEST, "SKILL.md"));
 for (const dir of ["references", "examples", "runner"]) {
   cpSync(join(SRC, dir), join(DEST, dir), { recursive: true, filter });
 }

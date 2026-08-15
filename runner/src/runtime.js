@@ -1,10 +1,9 @@
 // Provider-neutral re-implementation of the dynamic-workflow globals
 // (agent / parallel / pipeline / phase / log / budget / args / workflow).
 //
-// Nothing here mentions Claude or Codex: this is the scheduling glue that the
-// Workflow tool description specifies. Only agent() reaches a model, via the
-// codexAgent seam. Concurrency is capped exactly like the native runtime:
-// min(16, cores-2), with a hard 1000-agent backstop.
+// This is provider-neutral scheduling glue. Only agent() reaches a model through
+// the codexAgent seam. Concurrency is capped at min(16, cores-2), with a hard
+// 1000-agent backstop.
 
 import os from "node:os";
 import { existsSync } from "node:fs";
@@ -23,13 +22,12 @@ function looksLikePath(s) {
   return s.includes("/") || s.includes("\\") || /\.[cm]?js$/.test(s);
 }
 
-// Named-workflow registry: resolve `workflow("name")` to a script file, project
-// scope (.claude/workflows/) shadowing home (~/.claude/workflows/), matching the
-// native save locations. `<name>.js` and `<name>.workflow.js` both accepted.
+// Named-workflow registry: project `.omp/workflows` shadows the active user's
+// default OMP agent directory. `<name>.js` and `<name>.workflow.js` are accepted.
 function resolveNamedWorkflow(name) {
   const dirs = [
-    join(process.cwd(), ".claude", "workflows"),
-    join(os.homedir(), ".claude", "workflows"),
+    join(process.cwd(), ".omp", "workflows"),
+    join(os.homedir(), ".omp", "agent", "workflows"),
   ];
   const files = [`${name}.js`, `${name}.workflow.js`, `${name}.mjs`];
   for (const d of dirs) {

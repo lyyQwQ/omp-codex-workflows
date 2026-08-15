@@ -1,5 +1,5 @@
-// Loads a Claude Code dynamic-workflow script verbatim and runs it with the
-// Codex-backed globals injected — inside an isolated `node:vm` context.
+// Loads an OMP-authored dynamic-workflow script and runs it with Codex-backed
+// globals injected inside an isolated `node:vm` context.
 //
 // The native runtime guarantees "no direct filesystem or shell access from the
 // workflow itself": the script only coordinates agents; the agents do the I/O.
