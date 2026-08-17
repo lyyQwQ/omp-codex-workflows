@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // compare-runs: the across-runs analytics view. Fixtures cover run-id
 // grouping, newest-first ordering, the latest-vs-previous token trend,
 // by-design nulls not denting the completion rate, budget/null flags, empty
@@ -12,7 +13,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { collectComparison, renderComparisonText } from "../src/compareRuns.js";
 
-const BIN = new URL("../bin/compare-runs.js", import.meta.url).pathname;
+const BIN = fileURLToPath(new URL("../bin/compare-runs.js", import.meta.url));
 const ROOT = mkdtempSync(join(tmpdir(), "wf-compare-"));
 
 try {

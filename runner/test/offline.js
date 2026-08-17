@@ -137,36 +137,28 @@ const exec = promisify(execFile);
   await rm(repo, { recursive: true, force: true });
 }
 
-// 8) model resolution: Claude ids/aliases map; available passthrough; unknown -> default.
+// 8) model resolution: available ids pass through; aliases expand; unknown -> default.
 {
   const have = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"];
-  assert.equal(resolveModel("claude-opus-4-8", have), "gpt-5.6-sol", "opus -> Sol");
-  assert.equal(resolveModel("sonnet", have), "gpt-5.6-terra", "sonnet -> Terra");
-  assert.equal(resolveModel("haiku", have), "gpt-5.6-luna", "haiku -> Luna");
   assert.equal(resolveModel("gpt-5.6", have), "gpt-5.6-sol", "family alias -> explicit App Server id");
   assert.equal(resolveModel("gpt-5.4", have), "gpt-5.4", "available id passes through");
   assert.equal(resolveModel("inherit", have), undefined, "inherit -> config default");
   assert.equal(resolveModel(undefined, have), undefined, "undefined -> config default");
   assert.equal(resolveModel("made-up-model", have), undefined, "unknown -> config default");
-  assert.equal(resolveModel("claude-opus", []), "gpt-5.6-sol", "claude maps even with empty model list");
-  assert.equal(resolveModel("gpt-5.6", []), "gpt-5.6-sol", "family alias maps even with empty model list");
-
-  const legacy = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"];
-  assert.equal(resolveModel("opus", legacy), "gpt-5.5", "older catalogs retain the Opus fallback");
-  assert.equal(resolveModel("sonnet", legacy), "gpt-5.4", "older catalogs retain the Sonnet fallback");
-  assert.equal(resolveModel("haiku", legacy), "gpt-5.4-mini", "older catalogs retain the Haiku fallback");
+  assert.equal(resolveModel("gpt-5.6", []), "gpt-5.6-sol", "family alias expands without model/list");
+  assert.equal(resolveModel("gpt-5.4", []), "gpt-5.4", "catalog id passes through without model/list");
 }
 
-// 9) agentType: read system prompt + model from .claude/agents/<name>.md.
+// 9) agentType: read system prompt + model from .omp/agents/<name>.md.
 {
   const root = await mkdtemp(join(tmpdir(), "wf-agents-"));
-  await mkdir(join(root, ".claude", "agents"), { recursive: true });
+  await mkdir(join(root, ".omp", "agents"), { recursive: true });
   await writeFile(
-    join(root, ".claude", "agents", "terse.md"),
-    "---\nname: terse\nmodel: opus\n---\nYou answer in exactly one lowercase word.\n",
+    join(root, ".omp", "agents", "terse.md"),
+    "---\nname: terse\nmodel: gpt-5.6-sol\n---\nYou answer in exactly one lowercase word.\n",
   );
   const def = await loadAgentType("terse", root);
-  assert.equal(def.model, "opus");
+  assert.equal(def.model, "gpt-5.6-sol");
   assert.match(def.systemPrompt, /exactly one lowercase word/);
   assert.equal(await loadAgentType("does-not-exist", root), null, "unknown agentType -> null");
   await rm(root, { recursive: true, force: true });
@@ -366,16 +358,16 @@ const exec = promisify(execFile);
   resetMeter();
 }
 
-// 19) workflow("name") resolves a saved workflow from .claude/workflows/.
+// 19) workflow("name") resolves a saved workflow from .omp/workflows/.
 {
   const root = await mkdtemp(join(tmpdir(), "wf-registry-"));
-  await mkdir(join(root, ".claude", "workflows"), { recursive: true });
-  await writeFile(join(root, ".claude", "workflows", "child.js"), 'export const meta = { name: "child" };\nreturn 7;\n');
+  await mkdir(join(root, ".omp", "workflows"), { recursive: true });
+  await writeFile(join(root, ".omp", "workflows", "child.js"), 'export const meta = { name: "child" };\nreturn 7;\n');
   const prev = process.cwd();
   process.chdir(root);
   try {
     const r = await runWorkflowSource('export const meta = { name: "parent" };\nreturn await workflow("child");', {});
-    assert.equal(r, 7, "named workflow resolved from .claude/workflows and ran");
+    assert.equal(r, 7, "named workflow resolved from .omp/workflows and ran");
   } finally {
     process.chdir(prev);
     await rm(root, { recursive: true, force: true });
@@ -431,17 +423,28 @@ const exec = promisify(execFile);
         },
       },
       summary: { type: "string" },
+      config_schema: { type: "object" },
     },
     required: ["painPoints"], // <-- summary omitted
   };
   const strict = strictifySchema(authored);
-  assert.deepEqual(strict.required.sort(), ["painPoints", "summary"], "top-level: every property required");
+  assert.deepEqual(strict.required.sort(), ["config_schema", "painPoints", "summary"], "top-level: every property required");
   assert.deepEqual(
     strict.properties.painPoints.items.required.sort(),
     ["buyer", "pain", "whoFeelsItNow"],
     "nested array-item object: every property required (the field that 400'd is now included)",
   );
   assert.equal(strict.properties.painPoints.items.additionalProperties, false, "objects get additionalProperties:false");
+  assert.equal(
+    strict.properties.config_schema.additionalProperties,
+    false,
+    "nested object without properties still gets additionalProperties:false",
+  );
+  assert.deepEqual(
+    strictifySchema({ type: ["object", "null"], additionalProperties: true }),
+    { type: ["object", "null"], additionalProperties: false },
+    "nullable object schemas are strict and authored additionalProperties:true is overridden",
+  );
   assert.equal(strict.properties.painPoints.items.properties.whoFeelsItNow.type, "string", "field types are unchanged");
   assert.deepEqual(authored.properties.painPoints.items.required, ["pain", "buyer"], "the input schema is not mutated");
   // non-object schemas pass through untouched

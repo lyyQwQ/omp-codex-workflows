@@ -1,25 +1,24 @@
-# Claude Dynamic Workflows — on Codex
+# OMP Dynamic Workflows — on Codex
 
-> A **Claude Code skill**: type `/codex-workflows <task>` and a fleet of **Codex (GPT) agents** fans out across the work — Claude authors the workflow, runs it on your local `codex app-server`, and streams it back as a live **execution map**.
+> An **OMP skill**: type `/skill:codex-workflows <task>` and a fleet of **Codex (GPT) agents** fans out across the work — OMP authors the workflow, runs it on your local `codex app-server`, and streams back a live **execution map**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Node ≥ 18](https://img.shields.io/badge/node-%E2%89%A5%2018-green.svg)
 ![Dependencies: 0](https://img.shields.io/badge/dependencies-0-green.svg)
-[![CI](https://github.com/scasella/claude-dynamic-workflows-codex/actions/workflows/ci.yml/badge.svg)](https://github.com/scasella/claude-dynamic-workflows-codex/actions/workflows/ci.yml)
+[![CI](https://github.com/lyyQwQ/omp-codex-workflows/actions/workflows/ci.yml/badge.svg)](https://github.com/lyyQwQ/omp-codex-workflows/actions/workflows/ci.yml)
 
 ![Execution map](docs/map-dark.png)
 
 <sub>↑ a real run: diagnose a checkout latency regression — triage the signals in parallel, **race three root-cause workers** and cancel the losers, steer the winner on its warm thread, then gate the fix. This is the bundled demo; open it yourself in 10 seconds ([below ↓](#see-it-now-no-codex-required)).</sub>
 
-You describe a task; Claude Code writes a [dynamic-workflow](https://code.claude.com/docs/en/workflows) script — `agent()` / `parallel()` / `pipeline()` / `phase()` / `budget` — and runs it across dozens of GPT-5 agents instead of Claude subagents. The runtime holds the loop, branching, and intermediate results, so your context only sees the final answer — and you watch it build as an interactive map. And unlike the native one-shot DSL, workers here can stay **live** — steer a worker on warm context, race several and cancel the losers, or let a controller adapt the plan as results land ([Beyond one-shot ↓](#beyond-one-shot-sessionful-workers)). It scales one level up, too: add **`--multi`** and Claude launches a whole **fleet of concurrent workflows and supervises them itself** — answering their gates, steering, killing dead ends, forking winners ([walkthrough 8 ↓](#8--run-a-whole-fleet--and-let-claude-supervise-it)). Great for codebase audits, large migrations, cross-checked research, and idea generation.
+You describe a task; OMP authors a provider-neutral workflow script using `agent()` / `parallel()` / `pipeline()` / `phase()` / `budget`, then runs it across Codex agents instead of OMP-managed task subagents. The standalone runtime owns branching, warm worker sessions, journals, and result aggregation; `--multi` adds supervised concurrent workflow variants.
 
 This repo is **two ways in**:
 
-1. **The `/codex-workflows` skill** — how you use it day to day, from the Claude Code TUI. **Start here ↓**
-2. **A standalone runner + viewer** — the same engine without Claude Code (a CLI, [near the end](#without-claude-code-standalone-cli)).
+1. **The `/skill:codex-workflows` skill** — how you use it day to day, from the OMP TUI. **Start here ↓**
+2. **A standalone runner + viewer** — the same engine without OMP (a CLI, [near the end](#without-omp-standalone-cli)).
 
-> Unofficial / community project. Not affiliated with OpenAI or Anthropic.
-> "Codex" and "Claude" are trademarks of their respective owners.
+> Unofficial community project. Not affiliated with OpenAI or the OMP project.
 
 ---
 
@@ -28,8 +27,8 @@ This repo is **two ways in**:
 Want a look at a finished run before installing anything? The viewer is offline and self-contained, and the flagship demo is bundled:
 
 ```bash
-git clone https://github.com/scasella/claude-dynamic-workflows-codex
-cd claude-dynamic-workflows-codex
+git clone https://github.com/lyyQwQ/omp-codex-workflows
+cd omp-codex-workflows
 node runner/bin/view-run.js examples/incident-demo --open
 ```
 
@@ -42,39 +41,39 @@ That opens the map above — a fictional **checkout-latency incident**: a parall
 | **Cockpit.** A live run paused at a `human()` gate — answer it right in the page. | **Light theme.** Toggle Dark/Light top-right; there's a dense **Tree** layout too ([below](#the-run-viewer)). |
 | ![cockpit](docs/cockpit.png) | ![light](docs/map-light.png) |
 
-The first thing you'll notice is what's *not* in the old one-shot model: **long-lived workers** (`⟳ 2 turns`), a **race** that cancelled its losers, and — live — an **answer card** the run is waiting on. The rest of this guide is how to *drive* all of that from Claude Code.
+The first thing you'll notice is what's *not* in the old one-shot model: **long-lived workers** (`⟳ 2 turns`), a **race** that cancelled its losers, and — live — an **answer card** the run is waiting on. The rest of this guide is how to *drive* all of that from OMP.
 
 ---
 
 ## Install
 
-**As a Claude Code plugin** (recommended — updates with every push):
+**As an OMP plugin** (recommended):
 
 ```
-/plugin marketplace add scasella/claude-dynamic-workflows-codex
-/plugin install codex-workflows@codex-workflows
+/marketplace add lyyQwQ/omp-codex-workflows
+/marketplace install codex-workflows@codex-workflows
 ```
 
 **Or as a classic skills-dir clone:**
 
 ```bash
-git clone https://github.com/scasella/claude-dynamic-workflows-codex ~/.claude/skills/codex-workflows
+git clone https://github.com/lyyQwQ/omp-codex-workflows ~/.omp/agent/skills/codex-workflows
 ```
 
-(Developing from a clone elsewhere? `npm run sync-skill` pushes the skill
-surface — `SKILL.md`, `references/`, `examples/`, `runner/` — to
-`~/.claude/skills/codex-workflows` in one command.)
+(Developing from a clone elsewhere? `npm run sync-skill` copies the canonical
+skill plus `references/`, `examples/`, and `runner/` to
+`~/.omp/agent/skills/codex-workflows`.)
 
 **Prerequisites**
 
 - [Node](https://nodejs.org) ≥ 18 (zero npm dependencies to install)
 - The [`codex`](https://developers.openai.com/codex/cli) CLI on your `PATH`, logged in: `codex login`
 
-Either way the skill is now available in Claude Code as `/codex-workflows`.
+Either way the skill is now available in OMP as `/skill:codex-workflows`.
 Verify Codex is reachable any time with:
 
 ```bash
-npx github:scasella/claude-dynamic-workflows-codex doctor   # → state: ready
+npx github:lyyQwQ/omp-codex-workflows doctor   # → state: ready
 ```
 
 (The same `npx` entrypoint exposes the whole CLI surface without installing
@@ -82,15 +81,15 @@ anything: `run`, `fleet status|answer`, `view`, `map`, `summarize`.)
 
 ---
 
-## Using it in Claude Code
+## Using it in OMP
 
-The skill is **manual-invoke only** — Claude never auto-triggers it. You type `/codex-workflows` and describe the task in **one or two rough sentences** — there's no need to pre-engineer a prompt; the skill compiles your rough intent into the right workflow itself:
+The skill is **manual-invoke only** — OMP never auto-triggers it. You type `/skill:codex-workflows` and describe the task in **one or two rough sentences** — there's no need to pre-engineer a prompt; the skill compiles your rough intent into the right workflow itself:
 
 ```
-/codex-workflows  Audit every route under src/ for missing auth checks
+/skill:codex-workflows  Audit every route under src/ for missing auth checks
 ```
 
-Behind that one line, Claude:
+Behind that one line, OMP:
 
 1. **Preflights** Codex — confirms the app-server is reachable and notes the latest frontier model.
 2. **Compiles** your rough intent into a concrete harness — picks the scale, archetype, and pattern, builds a task contract, and states its assumptions (no external "metaprompt" needed).
@@ -130,9 +129,9 @@ that one model.
 
 ### Steering your run — just ask
 
-You don't manage flags; you describe what you want and Claude wires it up. Common asks:
+You don't manage flags; you describe what you want and OMP wires it up. Common asks:
 
-| You want to… | Say something like… | What Claude does |
+| You want to… | Say something like… | What OMP does |
 | :--- | :--- | :--- |
 | **Watch it build live** | "…and let me watch it" · "open the live GUI" | opens a browser viewer (`--gui`) and/or a new-terminal ASCII map (`--tui`) that update **in place** as agents run |
 | **See the size/cost first** | "plan it first — how many agents, roughly how much?" | a **no-token dry run** (`--plan`) that counts agents per phase and estimates a budget |
@@ -150,105 +149,105 @@ One thing you *don't* tune: it's always **one frontier model for every agent** �
 
 ```
 # Audit — scan in parallel, then a skeptic confirms each finding
-/codex-workflows  Audit every route under src/ for missing authorization, read-only
+/skill:codex-workflows  Audit every route under src/ for missing authorization, read-only
 
 # Research — fan out across the web, cross-check every claim, cite the survivors
-/codex-workflows  Research the current state of on-device LLM inference and verify each claim, then watch it live
+/skill:codex-workflows  Research the current state of on-device LLM inference and verify each claim, then watch it live
 
 # Brainstorm — generate, dedup, judge, recommend (plan it first to see the cost)
-/codex-workflows  Brainstorm 10 product ideas from this repo, score them with 3 judges, recommend the top 3 — plan it first
+/skill:codex-workflows  Brainstorm 10 product ideas from this repo, score them with 3 judges, recommend the top 3 — plan it first
 
 # Review — producer drafts, independent reviewers sign off (no agent reviews its own work)
-/codex-workflows  Review the files I changed for bugs with a fresh-context review gate
+/skill:codex-workflows  Review the files I changed for bugs with a fresh-context review gate
 
 # Triage — classify a batch in parallel, dedupe, route (untrusted text stays read-only)
-/codex-workflows  Triage these 40 issues and route each to a team
+/skill:codex-workflows  Triage these 40 issues and route each to a team
 
 # Migrate — find every call site and rewrite it (needs write access)
-/codex-workflows  Find every call of legacyFetch() and migrate it to the new client, then apply the edits
+/skill:codex-workflows  Find every call of legacyFetch() and migrate it to the new client, then apply the edits
 
 # Harden a goal — lint a vague /goal into a precise, testable one before you spend a fleet (goal_lint)
-/codex-workflows  Harden this Codex goal before I run it
+/skill:codex-workflows  Harden this Codex goal before I run it
 
 # Claim-check — verify a draft's claims against the actual repo, refute the unsupported ones (claim_check)
-/codex-workflows  Verify this blog draft against the repo
+/skill:codex-workflows  Verify this blog draft against the repo
 
 # Invent — net-new-to-industry product ideas, not thin wrappers; judged and recombined (industry_invention_studio)
-/codex-workflows  Generate practically useful, net-new product ideas from this repo
+/skill:codex-workflows  Generate practically useful, net-new product ideas from this repo
 
 # Triage a result — decide real / overfit / continue, then write the next experiment's /goal (research_result_triage)
-/codex-workflows  Triage the latest research result and write the next /goal
+/skill:codex-workflows  Triage the latest research result and write the next /goal
 
-# Fleet — several concurrent workflows, supervised by Claude (answers gates, steers, kills, forks)
-/codex-workflows --multi  Find the cause of the checkout p99 regression — attack it from a few different angles at once
+# Fleet — several concurrent workflows, supervised by OMP (answers gates, steers, kills, forks)
+/skill:codex-workflows --multi  Find the cause of the checkout p99 regression — attack it from a few different angles at once
 ```
 
 Rough intent is the default — a sentence or two is enough, and the skill compiles the rest (scale, archetype, pattern, task contract, safe run settings). Add `prompt-only` if you just want the generated invocation without running it.
 
 ### Following a run
 
-- Claude renders the **execution map inline** as the run progresses and again when it lands — so you can follow it without leaving the conversation.
-- For the full browser GUI at any time, just ask Claude to **open the viewer** (it runs `view-run` on the run's journal).
-- For a **cost & reliability recap** — tokens by phase, the costliest/slowest agents, and any red flags — ask Claude to **summarize the run** (it runs `summarize-run` on the journal); a short version also prints automatically when a run finishes.
-- To see **across runs** — what each run cost, completion rates, and how the same workflow trends run-over-run — ask Claude to **compare the runs** (it runs `compare-runs` over the journals; one line per run plus per-workflow rollups like "avg 1.2M tok/run · latest vs prev: −20%").
-- Every run is journaled to `<project>/.workflow-journal/<name>.jsonl`; ask Claude to **open the last run in the viewer** to revisit a past run.
-- The script Claude wrote stays in your project — rerun or edit it directly, or ask Claude to adjust it.
+- OMP renders the **execution map inline** as the run progresses and again when it lands — so you can follow it without leaving the conversation.
+- For the full browser GUI at any time, just ask OMP to **open the viewer** (it runs `view-run` on the run's journal).
+- For a **cost & reliability recap** — tokens by phase, the costliest/slowest agents, and any red flags — ask OMP to **summarize the run** (it runs `summarize-run` on the journal); a short version also prints automatically when a run finishes.
+- To see **across runs** — what each run cost, completion rates, and how the same workflow trends run-over-run — ask OMP to **compare the runs** (it runs `compare-runs` over the journals; one line per run plus per-workflow rollups like "avg 1.2M tok/run · latest vs prev: −20%").
+- Every run is journaled to `<project>/.workflow-journal/<name>.jsonl`; ask OMP to **open the last run in the viewer** to revisit a past run.
+- The script OMP wrote stays in your project — rerun or edit it directly, or ask OMP to adjust it.
 
-> **Not what you wanted?** If you actually want **Claude** subagents (not Codex), use Claude Code's native Workflow tool instead — this skill deliberately routes the work to Codex/GPT.
+> **Not what you wanted?** If you want OMP-managed subagents rather than Codex threads, use OMP's native `task` tool.
 
 ---
 
 ## Real-world walkthroughs
 
-Each of these is **one rough sentence** to `/codex-workflows`. Claude compiles it into the harness described, runs it on Codex, and hands you the artifact — you watch it build the whole time. These are the shapes people actually reach for.
+Each of these is **one rough sentence** to `/skill:codex-workflows`. OMP compiles it into the harness described, runs it on Codex, and hands you the artifact — you watch it build the whole time. These are the shapes people actually reach for.
 
 ### 1 · Diagnose a production incident (the bundled demo)
 
-> `/codex-workflows  Checkout p99 just spiked 12×. Triage the signals, race a few root-cause theories, confirm the leading one, and propose a fix — read-only, and ask me before you suggest shipping anything.`
+> `/skill:codex-workflows  Checkout p99 just spiked 12×. Triage the signals, race a few root-cause theories, confirm the leading one, and propose a fix — read-only, and ask me before you suggest shipping anything.`
 
-Claude authors a **root-cause lab**: a parallel **Triage** (metrics · logs · recent deploys), then a **Hunt** that *races three live workers* — one per hypothesis (N+1 query, pool exhaustion, cache stampede). The first to land wins; the runtime **cancels the other two** (you don't pay for the slowest). The winning worker is then **steered on its warm thread** — "confirm on the held repro" — a cheap second turn that doesn't re-read anything (141k tokens for the hunt → 47k for the confirmation). It **pauses at a `human()` gate** for the ship decision, then a lone `xhigh` synthesizer writes the patch + a regression test. The whole run is the hero image above; click the **n+1** worker for the per-turn timeline, and the live run shows the **answer card** (the cockpit screenshot). Bundled — open it with `node runner/bin/view-run.js examples/incident-demo --open`.
+OMP authors a **root-cause lab**: a parallel **Triage** (metrics · logs · recent deploys), then a **Hunt** that *races three live workers* — one per hypothesis (N+1 query, pool exhaustion, cache stampede). The first to land wins; the runtime **cancels the other two** (you don't pay for the slowest). The winning worker is then **steered on its warm thread** — "confirm on the held repro" — a cheap second turn that doesn't re-read anything (141k tokens for the hunt → 47k for the confirmation). It **pauses at a `human()` gate** for the ship decision, then a lone `xhigh` synthesizer writes the patch + a regression test. The whole run is the hero image above; click the **n+1** worker for the per-turn timeline, and the live run shows the **answer card** (the cockpit screenshot). Bundled — open it with `node runner/bin/view-run.js examples/incident-demo --open`.
 
 ### 2 · Audit a codebase for a class of bug — and trust the result
 
-> `/codex-workflows  Audit every route under src/ for missing authorization, read-only. Have an independent skeptic try to refute each finding before you report it.`
+> `/skill:codex-workflows  Audit every route under src/ for missing authorization, read-only. Have an independent skeptic try to refute each finding before you report it.`
 
 The classic **find → adversarially-verify** shape, and the reason to use a fleet instead of one agent: one pass *finds* candidates in parallel (one agent per area), then a **second, independent agent tries to refute each** — defaulting to "not a real finding" unless it can prove exploitability with a `file:line`. Plausible-but-wrong findings die in verification instead of in your inbox. You get a deduped table of *confirmed* issues with evidence, and (because it's `--sandbox read-only`) nothing was ever written. Swap "authorization" for "missing input validation", "unhandled promise rejections", "N+1 queries", "PII in logs" — same harness.
 
 ### 3 · Load a big thing once, then interrogate it cheaply
 
-> `/codex-workflows  Read everything under packages/core into one worker, then I'm going to ask it a stream of questions — keep it warm.`
+> `/skill:codex-workflows  Read everything under packages/core into one worker, then I'm going to ask it a stream of questions — keep it warm.`
 
 This is the **sessionful** superpower the native one-shot DSL can't do. One worker ingests the corpus **once** (`agent.start`); every follow-up is a `session.steer` on the *same warm thread* — it answers from context instead of re-reading. Measured on this repo's own source: after the one-time load, follow-ups cost **~69k tokens in ~6s each** versus **~219k and ~97s** for a cold agent re-reading every time — **~3× cheaper, ~16× faster per question** ([benchmark](examples/benchmarks)). Works for a data room, a contract set, a spec bundle, a log archive — anything you'll question more than twice.
 
 ### 4 · Throw several strategies at one stubborn bug
 
-> `/codex-workflows  This flaky test fails ~1 in 20. Try three theories at once — a recent regression, a timing/ordering race, and a shared-state leak — and tell me whichever one cracks it first.`
+> `/skill:codex-workflows  This flaky test fails ~1 in 20. Try three theories at once — a recent regression, a timing/ordering race, and a shared-state leak — and tell me whichever one cracks it first.`
 
 A **hedged race**: three workers attack the same problem from different angles in parallel; `agent.waitAny` wakes you on the **first** to reach a conclusion, and the losers are **cancelled** on the spot. You stop paying for the two dead ends the moment the live one pays off — the opposite of a `parallel()` barrier that waits for (and bills) the slowest. Reach for it whenever the *cheapest path to an answer is unknown* and trying several beats committing to one.
 
 ### 5 · Let it do the work — but stop at the decisions only you should make
 
-> `/codex-workflows  Migrate every call of legacyFetch() to the new client and apply the edits — but show me the plan and check with me before you touch anything in payments/.`
+> `/skill:codex-workflows  Migrate every call of legacyFetch() to the new client and apply the edits — but show me the plan and check with me before you touch anything in payments/.`
 
-The **cockpit**. Claude authors a migration that discovers every call site, drafts the rewrites, and at the risky fork calls `human("apply to payments/ now, or open a PR?", {choices})`. With `--gui`, the run **pauses and an answer card appears right in the live viewer** (the cockpit screenshot) — the whole fleet stays *warm* while it waits for your click. Unattended (CI, overnight) it falls back to the safe default after a timeout instead of hanging, and your answer is journaled so a `--resume` never re-asks. Supervised autonomy: the agents do the labor, you keep the judgment calls.
+The **cockpit**. OMP authors a migration that discovers every call site, drafts the rewrites, and at the risky fork calls `human("apply to payments/ now, or open a PR?", {choices})`. With `--gui`, the run **pauses and an answer card appears right in the live viewer** (the cockpit screenshot) — the whole fleet stays *warm* while it waits for your click. Unattended (CI, overnight) it falls back to the safe default after a timeout instead of hanging, and your answer is journaled so a `--resume` never re-asks. Supervised autonomy: the agents do the labor, you keep the judgment calls.
 
 ### 6 · The trust loop — harden the instruction before, verify the claims after
 
-> Before: `/codex-workflows quick Harden this Codex /goal before I run it: [paste]`  ·  After: `/codex-workflows Verify this PR description's claims against the actual diff and repo.`
+> Before: `/skill:codex-workflows quick Harden this Codex /goal before I run it: [paste]`  ·  After: `/skill:codex-workflows Verify this PR description's claims against the actual diff and repo.`
 
 Two shipped harness-zoo templates that bracket any expensive run. **GoalLint** turns a vague, risky `/goal` into a precise, **falsifiable**, artifact-producing one — so you stop getting runs that end in "looks good" with no controls and no stopping criteria. **ClaimCheck** extracts every factual claim in a doc (README, PR, report, agent output), verifies each against repo artifacts, marks them *supported / unsupported / contradicted / plausible-unverified*, and emits a **proof ledger** with safer rewrites for the ones that don't hold. *Harden before agents run; verify the claims after they write.*
 
 ### 7 · Cross-checked research with source discipline
 
-> `/codex-workflows  Research the current state of on-device LLM inference, verify every claim against a source, and cite the survivors — watch it live.`
+> `/skill:codex-workflows  Research the current state of on-device LLM inference, verify every claim against a source, and cite the survivors — watch it live.`
 
 A research fan-out that's honest about what it knows: parallel searches gather candidate claims, an independent pass **verifies each against a real source** (and *reports gaps rather than fabricating* when the evidence isn't there), and a synthesizer writes the cited brief. Confirmed evidence, inference, and uncertainty stay separated — missing evidence is treated as uncertainty, not success.
 
-### 8 · Run a whole fleet — and let Claude supervise it
+### 8 · Run a whole fleet — and let OMP supervise it
 
-> `/codex-workflows --multi  Find the cause of the checkout p99 regression — attack it from a few different angles at once, and keep the total under 5M tokens.`
+> `/skill:codex-workflows --multi  Find the cause of the checkout p99 regression — attack it from a few different angles at once, and keep the total under 5M tokens.`
 
-With `--multi`, Claude stops being a launcher and becomes the **operator**. It compiles a *fleet plan* — say, a sessionful deep-dive on the ORM theory, a loop-until-dry sweep of recent diffs, and a log-forensics fan-out — and launches each as its own background run in one shared directory, budget split across them. Then it runs the supervision loop the runner was built for: `fleet status` rolls every run into one digest (who's running, who's **stalled**, who's **waiting on an answer**, who finished and what they returned), gates **push** instead of waiting to be polled (`--notify-cmd` fires a shell hook the moment a question goes pending or a run ends), and the workflows are authored with **supervisor checkpoints** — `human()` gates whose answers Claude itself supplies via `fleet answer`, with free text acting as a *steer* ("drop the cache theory, go deep on the ORM layer"). A run chasing a dead end gets killed and its tokens stop; a run onto something big gets **forked** — copy the journal, extend the variant, `--resume` replays everything already done at **0 tokens** and sessionful workers re-attach to their threads warm. At the end Claude reconciles the variants' results — including what the killed runs ruled out — into one answer with per-variant costs.
+With `--multi`, OMP stops being a launcher and becomes the **operator**. It compiles a *fleet plan* — say, a sessionful deep-dive on the ORM theory, a loop-until-dry sweep of recent diffs, and a log-forensics fan-out — and launches each as its own background run in one shared directory, budget split across them. Then it runs the supervision loop the runner was built for: `fleet status` rolls every run into one digest (who's running, who's **stalled**, who's **waiting on an answer**, who finished and what they returned), gates **push** instead of waiting to be polled (`--notify-cmd` fires a shell hook the moment a question goes pending or a run ends), and the workflows are authored with **supervisor checkpoints** — `human()` gates whose answers OMP itself supplies via `fleet answer`, with free text acting as a *steer* ("drop the cache theory, go deep on the ORM layer"). A run chasing a dead end gets killed and its tokens stop; a run onto something big gets **forked** — copy the journal, extend the variant, `--resume` replays everything already done at **0 tokens** and sessionful workers re-attach to their threads warm. At the end OMP reconciles the variants' results — including what the killed runs ruled out — into one answer with per-variant costs.
 
 ![Fleet dashboard](docs/fleet-dashboard.png)
 
@@ -259,7 +258,7 @@ You're never locked out of the loop: the same checkpoints stay human-answerable 
 And the supervision layer isn't limited to workflows — it's a documented **file contract** ([fleet-protocol.md](references/fleet-protocol.md)), and the bundled `supervise` shim wraps **any long-running command** in it:
 
 ```bash
-npx github:scasella/claude-dynamic-workflows-codex supervise --name nightly -- python run_evals.py
+npx github:lyyQwQ/omp-codex-workflows supervise --name nightly -- python run_evals.py
 ```
 
 The job appears in `fleet status` and the dashboard like any run, its output streams as live progress, and a one-line `@@ASK {"question":"Promote?","choices":["yes","no"],"default":"no"}` printed by the job becomes a real supervisor gate — the answer lands on the job's stdin (`read answer` in bash), with the safe default on timeout. Your deploy script, eval run, or data job gets the same supervised-autonomy treatment as a workflow fleet.
@@ -272,7 +271,7 @@ This isn't hypothetical — this repo dogfoods it. A `--multi` fleet was pointed
 
 ## The run viewer
 
-Whether Claude opens it (`--gui` / "open the viewer") or you generate it yourself, you get one **self-contained HTML file** — works offline, shareable, no server. Two layouts (toggle top-right), a **Dark / Light** theme, and per-agent **tokens, time, model, and effort** at agent, phase, and run level.
+Whether OMP opens it (`--gui` / "open the viewer") or you generate it yourself, you get one **self-contained HTML file** — works offline, shareable, no server. Two layouts (toggle top-right), a **Dark / Light** theme, and per-agent **tokens, time, model, and effort** at agent, phase, and run level.
 
 - **◇ Map** — orchestrator → one row of parallel agents per phase → barrier merges → **result**. Each node carries its model / time / tokens; it opens at a readable 100% (**F** = fit the whole graph, `0` = reset, scroll zooms toward the cursor, drag pans). Wide fan-outs fold into an **aggregate node** you expand inline (running agents and workers are never hidden); not-yet-started phases show a "pending" placeholder. Click any node — or the **result** node — for an **inspector that docks beside the graph** (the map stays visible) with the full structured result. A **sessionful worker** is a single node with a `⟳ N` turn-chip strip; open it and the inspector shows its **per-turn timeline** — every steer on the worker's one warm thread, in order, with each turn's own tokens and time (the worker-timeline screenshot above). Cancelled race losers are marked ⊘.
 - **☰ Tree** — a dense `Run → Phase → Agent / Worker` inspector: phase **progress bars** with inline per-agent time / tokens / model, workers expand to their nested turns, and the run's actual **returned value** sits at the top.
@@ -285,22 +284,22 @@ Results render generically (arrays-of-objects → tables, `palette` → swatches
 
 **The cockpit — answer a `human()` gate in the page.** When a workflow reaches a fork only you should decide, it pauses and a **"needs you" answer card** appears at the top of the live viewer — choice buttons plus a free-text box (the cockpit screenshot above) — and the run waits, fleet warm, for your click. With `--gui` the page is served on `127.0.0.1` so the card posts your answer straight back to the running workflow; opened as a bare `file://` it shows the one-line terminal command to answer instead. Unattended runs fall back to the gate's default after a timeout — it never hangs.
 
-**Watching many runs at once — the fleet dashboard.** The viewer above is one run deep; a [`--multi` fleet](#8--run-a-whole-fleet--and-let-claude-supervise-it) is several runs wide. `fleet status <dir> --watch --html fleet.html --open` writes a **live card-per-run dashboard** — state, phase and agent progress, tokens vs budget, every pending gate with a paste-ready answer command, each finished run's result, and a link into that run's full viewer — auto-refreshing while anything is live, settling static when the fleet is done. The same `fleet status` in a terminal (or `--json` for an agent) is the supervision surface Claude itself polls.
+**Watching many runs at once — the fleet dashboard.** The viewer above is one run deep; a `--multi` fleet is several runs wide. `fleet status <dir> --watch --html fleet.html --open` writes a live card-per-run dashboard with state, phase and agent progress, tokens vs budget, pending gates, results, and links into each run's full viewer.
 
-Prefer the terminal? The same run renders as the **ASCII map** shown above — that's exactly what Claude pastes inline, and it has a live `--watch` too.
+Prefer the terminal? The same run renders as the **ASCII map** shown above — that's exactly what OMP pastes inline, and it has a live `--watch` too.
 
 ---
 
 ## Putting it to work
 
-`/codex-workflows` is most useful as an **operating layer around your agents** — reach for it *before* expensive work, *after* messy results, and whenever you want a **repeatable process** instead of a one-off answer. Today **GoalLint** and **`summarize-run`** are concrete and shipped; the other archetypes (triage, eureka, repo-deep-read, root-cause, rule-mining, …) are **shapes the skill authors on demand** — promote the ones that earn their keep into `examples/harness-zoo/` (see the last pattern below).
+`/skill:codex-workflows` is most useful as an **operating layer around your agents** — reach for it *before* expensive work, *after* messy results, and whenever you want a **repeatable process** instead of a one-off answer. Today **GoalLint** and **`summarize-run`** are concrete and shipped; the other archetypes (triage, eureka, repo-deep-read, root-cause, rule-mining, …) are **shapes the skill authors on demand** — promote the ones that earn their keep into `examples/harness-zoo/` (see the last pattern below).
 
 ### Harden the goal before an expensive run
 
 Make this the default reflex. Before handing a serious `/goal` to Codex — especially anything touching research claims, benchmarks, repo edits, evals, or "is this result real?":
 
 ```text
-/codex-workflows quick Harden this Codex goal before I run it:
+/skill:codex-workflows quick Harden this Codex goal before I run it:
 [paste your /goal]
 ```
 
@@ -323,10 +322,10 @@ For experiment-driven work, run a cadence instead of one-off prompts:
 
 ```text
 # after a result lands — decide what it means and what's next
-/codex-workflows Triage the latest result in this repo. Decide whether it's real, overfit, useful, or worth continuing, then write the next strict Codex /goal.
+/skill:codex-workflows Triage the latest result in this repo. Decide whether it's real, overfit, useful, or worth continuing, then write the next strict Codex /goal.
 
 # when you're stuck or a result is ambiguous — generate testable directions
-/codex-workflows deep Generate surprising but practically testable next research ideas from the latest reports and logs. Emphasize hidden mechanisms, falsification, and hard-to-fake success criteria.
+/skill:codex-workflows deep Generate surprising but practically testable next research ideas from the latest reports and logs. Emphasize hidden mechanisms, falsification, and hard-to-fake success criteria.
 ```
 
 Then GoalLint the chosen `/goal`, run it on Codex, and `summarize-run` the result — and repeat.
@@ -336,9 +335,9 @@ Then GoalLint the chosen `/goal`, run it on Codex, and `summarize-run` the resul
 This isn't only for giant fan-outs. A `quick_harness` is **2–5 agents** for goal hardening, assumption checks, small critiques, quick ranking, or a single claim check — cheap enough for everyday use:
 
 ```text
-/codex-workflows quick Critique this plan before I send it to Codex — ambiguity, falsification, and overbuild critics only.
-/codex-workflows quick Rank these 6 ideas by novelty, practical usefulness, and fastest proof-of-value — pairwise, not 1–10.
-/codex-workflows quick Check whether this README claim is actually supported by the current repo.
+/skill:codex-workflows quick Critique this plan before I send it to Codex — ambiguity, falsification, and overbuild critics only.
+/skill:codex-workflows quick Rank these 6 ideas by novelty, practical usefulness, and fastest proof-of-value — pairwise, not 1–10.
+/skill:codex-workflows quick Check whether this README claim is actually supported by the current repo.
 ```
 
 ### Ask what harness a task deserves
@@ -346,7 +345,7 @@ This isn't only for giant fan-outs. A `quick_harness` is **2–5 agents** for go
 When you're unsure whether a task wants goal-hardening, claim verification, loop-until-dry, tournament ranking, a root-cause lab, or bounded execution, let the skill **design the harness** without running it:
 
 ```text
-/codex-workflows prompt-only Design the best Codex-backed harness for: [rough task]. Choose the scale, archetype, pattern, failure mode, task contract, phases, personas, run settings, and output artifacts. Don't run it.
+/skill:codex-workflows prompt-only Design the best Codex-backed harness for: [rough task]. Choose the scale, archetype, pattern, failure mode, task contract, phases, personas, run settings, and output artifacts. Don't run it.
 ```
 
 ### Diagnose failures with a root-cause lab
@@ -354,7 +353,7 @@ When you're unsure whether a task wants goal-hardening, claim verification, loop
 When CI, a run, a benchmark, or a Codex task fails, don't ask one agent to "fix the bug" — that invites a confident wrong diagnosis:
 
 ```text
-/codex-workflows Diagnose the latest failed run. Use a root-cause lab: separate agents for logs, recent diffs, code-path tracing, environment/resource issues, hypothesis generation, hypothesis refutation, and a minimal repro. Return ranked causes and the cheapest discriminating next test.
+/skill:codex-workflows Diagnose the latest failed run. Use a root-cause lab: separate agents for logs, recent diffs, code-path tracing, environment/resource issues, hypothesis generation, hypothesis refutation, and a minimal repro. Return ranked causes and the cheapest discriminating next test.
 ```
 
 ### Turn recurring failures into durable rules
@@ -362,7 +361,7 @@ When CI, a run, a benchmark, or a Codex task fails, don't ask one agent to "fix 
 Periodically mine your own traces so the system gets better as you use it:
 
 ```text
-/codex-workflows Mine recent reports, journals, failed agent outputs, and my corrections for recurring failure modes. Propose durable rules for CLAUDE.md / AGENTS.md / harness templates — keep only rules that would have prevented a real failure without over-constraining future work.
+/skill:codex-workflows Mine recent reports, journals, failed agent outputs, and my corrections for recurring failure modes. Propose durable rules for AGENTS.md and harness templates; keep only rules that would have prevented a real failure without over-constraining future work.
 ```
 
 ### Structured synthesis with source discipline
@@ -370,7 +369,7 @@ Periodically mine your own traces so the system gets better as you use it:
 The tool isn't only for code. For a memo, brief, or grant concept, the `policy_or_grant_builder` archetype runs an evidence scan, an opposition critique, claim verification, and a concision pass:
 
 ```text
-/codex-workflows Draft a one-page memo from the files in this folder — evidence scan, opposition critique, claim verification, then a ruthless concision edit.
+/skill:codex-workflows Draft a one-page memo from the files in this folder — evidence scan, opposition critique, claim verification, then a ruthless concision edit.
 ```
 
 When a task needs current facts the repo doesn't contain, tell it to **report source gaps rather than fabricate** — the skill's epistemic standards already separate confirmed evidence from inference and treat missing evidence as uncertainty, not success.
@@ -380,7 +379,7 @@ When a task needs current facts the repo doesn't contain, tell it to **report so
 GoalLint is the **before** tool. Its natural **after** counterpart is **ClaimCheck** — extract the claims in a README, post, report, or agent output, verify each against repo artifacts, and emit a proof ledger. The skill can author it as a reusable template:
 
 ```text
-/codex-workflows Create a reusable harness-zoo workflow `claim-check.workflow.js`: extract claims from a doc or agent output, verify each against repo artifacts, mark them supported / unsupported / contradicted / plausible-unverified, suggest safer rewrites, and emit a proof ledger. Include a README, sample args, and a plan-mode smoke test.
+/skill:codex-workflows Create a reusable harness-zoo workflow `claim-check.workflow.js`: extract claims from a doc or agent output, verify each against repo artifacts, mark them supported / unsupported / contradicted / plausible-unverified, suggest safer rewrites, and emit a proof ledger. Include a README, sample args, and a plan-mode smoke test.
 ```
 
 > **Harden the instruction before agents run; verify the claims after they write.** Together that's a trust loop.
@@ -399,11 +398,11 @@ GoalLint already proves the model (workflow + README + sample args + strict sche
 ### A weekly cadence
 
 ```text
-Before each expensive run   →  /codex-workflows quick Harden this /goal before I run it.
-After each result           →  /codex-workflows Triage the latest result and write the next /goal.
+Before each expensive run   →  /skill:codex-workflows quick Harden this /goal before I run it.
+After each result           →  /skill:codex-workflows Triage the latest result and write the next /goal.
 After each run              →  summarize-run the journal; fix the harness if it's costly or messy.
-Weekly                      →  /codex-workflows Generate net-new practical ideas from this repo and recent run summaries.
-Monthly                     →  /codex-workflows Mine recurring agent failures into durable rules.
+Weekly                      →  /skill:codex-workflows Generate net-new practical ideas from this repo and recent run summaries.
+Monthly                     →  /skill:codex-workflows Mine recurring agent failures into durable rules.
 ```
 
 ---
@@ -449,9 +448,9 @@ for (const s of first.pendingSessions) await s.cancel();           // stop the l
 
 ---
 
-## Without Claude Code (standalone CLI)
+## Without OMP (standalone CLI)
 
-The runner and viewer work on their own — no Claude Code required.
+The runner and viewer work on their own — no OMP required.
 
 ```bash
 # Run a workflow script against Codex (pin the frontier model, auto-scale effort):
@@ -538,20 +537,21 @@ Sessionful workers — `agent.start` / `agent.waitAny` / `session.steer` — run
 
 ## How it works
 
-Claude Code's workflow runtime is sealed inside its binary, so this is an **external re-host** of the DSL. The only provider-specific piece is `agent()`:
+This is a standalone workflow runtime launched by OMP. The provider-specific seam
+is `agent()`:
 
 | Workflow concept | Codex mapping |
 | :--- | :--- |
 | `agent(prompt)` → final text | `thread/start` + `turn/start`, last `agentMessage.text` |
-| `agent(prompt, { schema })` | native `turn/start.outputSchema` (auto-normalized for strict mode) → parsed JSON |
+| `agent(prompt, { schema })` | native `turn/start.outputSchema` → parsed JSON |
 | `agent.start(prompt)` → session | `thread/start` + first `turn/start`, returns before completion |
 | session resume (`--resume`) | `thread/resume` re-attaches the persisted thread; completed turns replay from the journal |
-| `session.steer(msg)` | another `turn/start` on the **same** thread — a follow-up turn |
-| `agentType: 'x'` | loads `.claude/agents/x.md` → `developerInstructions` |
-| Claude model id / alias | when unpinned, Opus → Sol, Sonnet → Terra, and Haiku → Luna when available; resolved via `model/list` |
+| `session.steer(msg)` | another `turn/start` on the same thread |
+| `agentType: 'x'` | loads `.omp/agents/x.md` → `developerInstructions` |
+| `model` | exact Codex id resolved against `model/list` |
 | sandbox / permissions | `approvalPolicy:"never"` + sandbox |
 | transient errors | retry with backoff; app-server auto-reconnect |
-| `parallel` / `pipeline` / `phase` / `budget` | unchanged — provider-neutral JS |
+| `parallel` / `pipeline` / `phase` / `budget` | provider-neutral JS scheduling |
 
 Workflow scripts run in an isolated `node:vm` context (no `fs`/`process`/`fetch`; non-deterministic builtins blocked) — the agents do the I/O, the script coordinates. A resume journal caches each completed agent so reruns skip unchanged work.
 
@@ -566,11 +566,11 @@ Full internals, the protocol mapping, and a faithfulness comparison vs. the nati
 
 ## Safety
 
-Workflow agents run with `approvalPolicy: "never"` inside a Codex sandbox (default `sandbox: workspace-write`) — like any autonomous agent run, they read, write, and execute shell commands **without prompting**. For untrusted or exploratory tasks, tell Claude to keep it **read-only** (or pass `--sandbox read-only`), and read a workflow script before you run it. The workflow *script itself* is isolated (no filesystem/network/process access) — only the agents act.
+Workflow agents run with `approvalPolicy: "never"` inside a Codex sandbox (default `sandbox: workspace-write`) — like any autonomous agent run, they read, write, and execute shell commands **without prompting**. For untrusted or exploratory tasks, tell OMP to keep it **read-only** (or pass `--sandbox read-only`), and read a workflow script before you run it. The workflow *script itself* is isolated (no filesystem/network/process access) — only the agents act.
 
 ## Limitations (honest)
 
-- This is a **standalone re-host**, not the in-Claude-Code-native experience: no in-session background tasks, no `/workflows` progress UI, no save-as-`/command` — though the live viewer and inline map cover monitoring, and `workflow("name")` resolves saved workflows from `.claude/workflows/`.
+- This is a standalone process, not an OMP `task` child: it has its own journal and viewer rather than appearing in the active OMP task graph. `workflow("name")` resolves saved workflows from `.omp/workflows/` and `~/.omp/agent/workflows/`.
 - A couple of native nuances aren't replicated 1:1: one-shot `agent()` resume replays *results* (the journal), not thread state — single stateless turns have no state worth forking — and budget accounting is per-process (`--budget-meter` selects total vs the native output-token pool). The map models barrier/phase structure (a clean approximation for pipeline-shaped runs). Details in the internals doc.
 - **Session resume depends on the persisted rollout.** A `--resume` re-attaches each worker to its prior Codex thread (`thread/resume`) and replays completed turns free; if the rollout is gone or the codex version predates `thread/resume`, that worker's turns re-run live (correct, just not free). Turn replay is positional — edit the script's session *call order* and the replayed prefix re-runs.
 
@@ -587,7 +587,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Repository layout
 
 ```
-SKILL.md                  the Claude Code skill (manual-invoke /codex-workflows)
+skills/codex-workflows/SKILL.md  OMP skill (manual invocation: /skill:codex-workflows)
 runner/                   standalone runner (Node, zero deps)
   bin/run-workflow.js     execute a workflow script on Codex
   bin/view-run.js         generate the HTML run viewer (--watch for live)

@@ -8,7 +8,7 @@
 //   codex-workflows summarize [target] […]      cost/performance/reliability report
 //   codex-workflows doctor                      check the local Codex App Server
 //
-// e.g.  npx github:scasella/claude-dynamic-workflows-codex doctor
+// e.g.  npx github:lyyQwQ/omp-codex-workflows doctor
 
 import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";

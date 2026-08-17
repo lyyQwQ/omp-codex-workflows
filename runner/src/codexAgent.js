@@ -4,8 +4,8 @@
 //
 // Tier-1 hardening for cross-project use:
 //   • reconnecting singleton client (a dead app-server no longer kills the run)
-//   • model resolution (Claude ids / aliases -> available Codex models, via model/list)
-//   • agentType -> developerInstructions (the .claude/agents registry)
+//   • model resolution against Codex model/list
+//   • agentType -> developerInstructions (the OMP agent registry)
 //   • retry-with-backoff on transient Codex / transport errors
 
 import { setTimeout as sleep } from "node:timers/promises";
@@ -23,21 +23,35 @@ import { loadAgentType } from "./agentTypes.js";
 export function strictifySchema(s) {
   if (!s || typeof s !== "object") return s;
   if (Array.isArray(s)) return s.map(strictifySchema);
+
   const out = { ...s };
-  if (out.properties && typeof out.properties === "object" && !Array.isArray(out.properties)) {
+  const hasProperties = out.properties && typeof out.properties === "object" && !Array.isArray(out.properties);
+  const isObjectSchema =
+    out.type === "object" ||
+    (Array.isArray(out.type) && out.type.includes("object")) ||
+    hasProperties;
+
+  if (hasProperties) {
     const props = {};
     for (const k of Object.keys(out.properties)) props[k] = strictifySchema(out.properties[k]);
     out.properties = props;
-    out.required = Object.keys(props); // strict mode: every property is required
-    if (out.additionalProperties === undefined) out.additionalProperties = false;
+    out.required = Object.keys(props);
   }
-  if (out.items) out.items = strictifySchema(out.items);
-  for (const kw of ["anyOf", "oneOf", "allOf"]) if (Array.isArray(out[kw])) out[kw] = out[kw].map(strictifySchema);
-  for (const kw of ["$defs", "definitions"]) {
-    if (out[kw] && typeof out[kw] === "object") {
-      const d = {};
-      for (const k of Object.keys(out[kw])) d[k] = strictifySchema(out[kw][k]);
-      out[kw] = d;
+  // Codex strict output 要求每个对象 Schema 都显式设置该字段，
+  // 包括空对象和可空对象联合类型。
+  if (isObjectSchema) out.additionalProperties = false;
+
+  for (const kw of ["items", "contains", "not", "if", "then", "else", "propertyNames"]) {
+    if (out[kw]) out[kw] = strictifySchema(out[kw]);
+  }
+  for (const kw of ["anyOf", "oneOf", "allOf", "prefixItems"]) {
+    if (Array.isArray(out[kw])) out[kw] = out[kw].map(strictifySchema);
+  }
+  for (const kw of ["$defs", "definitions", "dependentSchemas", "patternProperties"]) {
+    if (out[kw] && typeof out[kw] === "object" && !Array.isArray(out[kw])) {
+      const schemas = {};
+      for (const k of Object.keys(out[kw])) schemas[k] = strictifySchema(out[kw][k]);
+      out[kw] = schemas;
     }
   }
   return out;
@@ -165,7 +179,7 @@ export function parseSchemaResult(text, schema) {
 export async function codexAgent(prompt, opts = {}) {
   const log = typeof opts.log === "function" ? opts.log : () => {};
 
-  // agentType -> system prompt (+ optional model) from the .claude/agents registry.
+  // agentType -> system prompt (+ optional model) from the OMP agent registry.
   let systemPrompt = opts.systemPrompt;
   let agentTypeModel;
   if (opts.agentType) {

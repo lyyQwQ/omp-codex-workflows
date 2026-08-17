@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Run Claude Code dynamic-workflow scripts against a local Codex App Server instead of Claude subagents. The workflow DSL (agent/parallel/pipeline/phase/log/budget/args/workflow) is preserved verbatim; only agent() is rebound to a Codex thread+turn.",
+  "description": "Run OMP-authored dynamic-workflow scripts against a local Codex App Server. The agent/parallel/pipeline/phase/log/budget/args/workflow DSL is provider-neutral; agent() is backed by a Codex thread and turn.",
   "bin": {
     "run-workflow": "bin/run-workflow.js",
     "fleet": "bin/fleet.js"

@@ -19,6 +19,7 @@ import { pickFrontier } from "../src/modelMap.js";
 import { Journal } from "../src/journal.js";
 import { eventsPathFor, resultPathFor, progressPathFor, runMetaPathFor, questionsPathFor, answersPathFor } from "../src/runModel.js";
 import { summarizeRun, renderSummaryText, renderEndOfRun } from "../src/runSummary.js";
+import { spawnNotification } from "../src/notify.js";
 
 const BIN_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -382,15 +383,7 @@ if (!opts.noJournal) {
 // going pending (it times out to its default!) and the run ending. The command
 // runs detached and best-effort — a notifier failure never touches the run.
 const notify = opts.notifyCmd
-  ? (evt) => {
-      try {
-        spawn("/bin/sh", ["-c", opts.notifyCmd], {
-          env: { ...process.env, WORKFLOW_EVENT: JSON.stringify(evt) },
-          stdio: "ignore",
-          detached: true,
-        }).unref();
-      } catch {}
-    }
+  ? (evt) => spawnNotification(opts.notifyCmd, evt)
   : null;
 
 // ── interactive involvement channel (the workflow's `human()` global) ─────────

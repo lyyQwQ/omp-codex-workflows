@@ -1,17 +1,17 @@
 {
-  "name": "claude-dynamic-workflows-codex",
+  "name": "omp-codex-workflows",
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Run Claude Code's dynamic-workflow orchestration on a local Codex (GPT) backend, plus an interactive run viewer.",
+  "description": "Run OMP-authored dynamic workflows on a local Codex backend, with live visualization and run analytics.",
   "license": "MIT",
   "author": "Stephen Casella",
   "repository": {
     "type": "git",
-    "url": "https://github.com/scasella/claude-dynamic-workflows-codex.git"
+    "url": "https://github.com/lyyQwQ/omp-codex-workflows.git"
   },
-  "homepage": "https://github.com/scasella/claude-dynamic-workflows-codex#readme",
-  "bugs": "https://github.com/scasella/claude-dynamic-workflows-codex/issues",
+  "homepage": "https://github.com/lyyQwQ/omp-codex-workflows#readme",
+  "bugs": "https://github.com/lyyQwQ/omp-codex-workflows/issues",
   "engines": { "node": ">=18" },
   "bin": { "codex-workflows": "bin/codex-workflows.js" },
   "scripts": {
@@ -26,7 +26,7 @@
     "run-workflow": "node runner/bin/run-workflow.js"
   },
   "keywords": [
-    "claude-code", "claude", "codex", "openai", "gpt", "agents", "workflow",
+    "omp", "oh-my-pi", "codex", "openai", "gpt", "agents", "workflow",
     "orchestration", "dynamic-workflows", "agent-skills", "visualization", "dag"
   ]
 }

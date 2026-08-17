@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Checks for the ASCII map renderer (src/asciiMap.js) + its integration with the
 // shared run model (src/runModel.js). No terminal, no tokens.
 
@@ -9,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { buildRunModel, buildLiveRunModel, liveState, locateRun } from "../src/runModel.js";
 import { renderMap, agentSnippet } from "../src/asciiMap.js";
 
-const MAP_BIN = new URL("../bin/map-run.js", import.meta.url).pathname;
+const MAP_BIN = fileURLToPath(new URL("../bin/map-run.js", import.meta.url));
 
 const plain = (s) => s.replace(/\x1b\[[0-9;]*m/g, ""); // strip ANSI for assertions
 

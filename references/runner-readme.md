@@ -1,17 +1,14 @@
 # codex-workflows
 
-Run **Claude Code dynamic-workflow scripts** against a **local Codex App Server**
-instead of Claude subagents.
+Run **OMP-authored dynamic-workflow scripts** against a local Codex App Server.
 
-The workflow authoring surface is preserved verbatim — `export const meta` plus a
-body using `agent()`, `parallel()`, `pipeline()`, `phase()`, `log()`, `args`,
-`budget`, and `workflow()`. The **only** thing that changes is what backs
-`agent()`: rather than spawning a Claude subagent, each call runs as one Codex
-`thread` + `turn` over `codex app-server`, and returns the agent's final message
-(or, with a `schema`, the parsed structured object).
+The workflow surface is `export const meta` plus a body using `agent()`,
+`parallel()`, `pipeline()`, `phase()`, `log()`, `args`, `budget`, and
+`workflow()`. Each `agent()` call runs as one Codex thread and turn over
+`codex app-server`, returning the agent's final message or parsed structured
+output when a schema is supplied.
 
-So you "create the workflow as normal" — author it (or let Claude Code's Workflow
-tool author + persist it), then execute that same script file here.
+Author the script from OMP, then execute that script through this runner.
 
 ## How it works
 
@@ -41,8 +38,8 @@ workflow script (.js, unchanged)
 | `agent.start(prompt)`         | `thread/start` + first `turn/start`, returns before completion |
 | `session.steer(msg)`          | another `turn/start` on the **same** `threadId` (a follow-up turn) |
 | `session.cancel()`            | `turn/interrupt` → await `turn/completed{status:interrupted}` |
-| `agentType: 'x'`              | loads `.claude/agents/x.md` → `developerInstructions`      |
-| `model` (Claude id or alias)  | remapped to an available Codex model via `model/list`      |
+| `agentType: 'x'`              | loads `.omp/agents/x.md` → `developerInstructions`         |
+| `model`                       | exact Codex id resolved against `model/list`               |
 | `effort`                      | `effort` on thread + turn                                  |
 | sandbox / permissions         | `approvalPolicy:"never"` + `sandbox` (default `workspace-write`) |
 | transient errors              | retry with exponential backoff; app-server auto-reconnect  |
@@ -114,7 +111,7 @@ run-workflow <script.js>
   --plan              dry run: count agents per phase/effort + estimate a budget (no model)
   --tui               open a live ASCII map of the run in a new terminal window
   --gui               open a live HTML viewer of the run in your browser  (--monitor = both)
-  --model M           fallback model (Claude ids/aliases auto-mapped); omit for config default
+  --model M           fallback Codex model id; omit for config default
   --frontier          pin ALL agents to the auto-detected latest frontier model (currently gpt-5.6-sol; dynamic)
   --pin-model M       pin ALL agents to model M (overrides per-call model)
   --effort E          none|minimal|low|medium|high|xhigh (flat fallback; unset inherits user config/model default)
@@ -384,18 +381,12 @@ the job's stdin (a bash `echo @@ASK…; read answer` is a complete client).
 
 ### Cross-project robustness
 
-A persisted script written for Claude Code rarely needs editing to run here:
-
-- **Model translation** — the GPT-5.6 Codex series is Sol (flagship), Terra
-  (balanced), and Luna (efficient). A script (or `agentType`) that asks for
-  `claude-opus-4-8`, or a bare `opus`/`sonnet`/`haiku` alias, maps Opus → Sol,
-  Sonnet → Terra, and Haiku → Luna when available (queried once via
-  `model/list`, with an available-model fallback). Unknown/`inherit` → Codex
-  config default. `--frontier` bypasses this routing and dynamically pins the
-  whole run to the current flagship, now `gpt-5.6-sol`.
+- **Model selection** — exact Codex model ids are validated against `model/list`.
+  `--frontier` dynamically pins the whole run to the strongest available model.
 - **`agentType`** — `agent(p, { agentType: 'reviewer' })` loads
-  `.claude/agents/reviewer.md` (project scope first, then `~/.claude`) and uses its
-  body as `developerInstructions` and its frontmatter `model` as a fallback.
+  `.omp/agents/reviewer.md` (project scope first, then
+  `~/.omp/agent/agents/reviewer.md`) and uses its body as
+  `developerInstructions` and its frontmatter `model` as a fallback.
 - **Resilience** — transient Codex errors (rate limits, stream disconnects,
   connection failures) and a dropped app-server are retried with exponential
   backoff; the client reconnects automatically. Permanent errors (bad request,
@@ -421,12 +412,12 @@ unless you deliberately want to escape the layer-width policy for one agent).
 final-message capture, native `outputSchema` structured output, `agent`,
 `parallel`, `pipeline`, `phase`, `log`, `budget` (token metering + enforcement),
 **per-call `opts.phase` grouping**, **per-agent metrics** (phase/effort/model/
-tokens/time persisted to the journal, rendered by the viewer), **model translation
+tokens/time persisted to the journal, rendered by the viewer), **model selection
 + `model/list` preflight**, **`agentType`** resolution, **retry-with-backoff +
 app-server reconnect**, an **isolated `node:vm` script sandbox** (no fs/shell/
 process/fetch/import; non-deterministic builtins blocked), **`isolation:'worktree'`**,
 the **resume journal** (`--resume`), the **named-workflow registry**
-(`workflow("name")` → `.claude/workflows/` then `~/.claude/workflows/`),
+(`workflow("name")` → `.omp/workflows/` then `~/.omp/agent/workflows/`),
 **`--plan` dry-run estimation**, **`--budget-meter total|output`**, **`--watch`
 live viewer**, the **`summarize-run` cost/performance/reliability report**
 (text/json/markdown, with an automatic end-of-run recap), one-level

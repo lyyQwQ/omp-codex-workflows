@@ -64,8 +64,8 @@ The only global that calls a model. Runs `prompt` as one Codex thread+turn.
 | opt | meaning |
 | --- | --- |
 | `schema` | JSON Schema (object root, `additionalProperties:false` recommended) → Codex `outputSchema`; result is `JSON.parse`d |
-| `model` | **Leave unset in scripts.** Runs are pinned to one latest-frontier model with `--frontier`, which overrides any per-call `model` anyway. (If you do set it, Claude ids/aliases map Opus → Sol, Sonnet → Terra, and Haiku → Luna when available.) |
-| `agentType` | name of a subagent in `.claude/agents/<name>.md`; its body becomes the system prompt, its frontmatter `model` a fallback |
+| `model` | **Leave unset in scripts.** Runs are pinned to the latest frontier model with `--frontier`, which overrides any per-call `model`. Otherwise pass an exact Codex model id. |
+| `agentType` | name of an OMP agent in `.omp/agents/<name>.md`; its body becomes the system prompt and its frontmatter `model` is the fallback |
 | `systemPrompt` | explicit developer instructions (overrides `agentType` body) |
 | `effort` | `none`/`minimal`/`low`/`medium`/`high`/`xhigh`. **Usually leave unset and run with `--auto-effort`**, which scales effort to each layer's parallel width (1→`xhigh`, 2+→`high` — the floor) so lone gate agents get the policy's extra-high tier while every fan-out still gets `high`. A per-call `effort` *overrides* the policy, so set it only as a deliberate exception. Precedence: `--pin-effort` > per-call `effort` > `--auto-effort` > `--effort` > inherited user config or model default. With no explicit `model_reasoning_effort`, GPT-5.6 Sol's catalog default is `low`; unspecified effort is not universally `xhigh`. |
 | `sandbox` | `read-only` \| `workspace-write` \| `danger-full-access` (default `workspace-write`) |
